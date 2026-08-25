@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+@layer utilities {
+  .shadow-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Marquee for promo ticker (consistent with user web store) */
+  .animate-marquee {
+    animation: marquee 30s linear infinite;
+  }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* Horizontal scroll container with hidden scrollbar */
+  .scroll-container {
+    scrollbar-width: thin;
+    scrollbar-color: #c7caff transparent;
+  }
+  .scroll-container::-webkit-scrollbar {
+    height: 6px;
+  }
+  .scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scroll-container::-webkit-scrollbar-thumb {
+    background: #e5e7ff;
+    border-radius: 999px;
+  }
+  .scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #c7caff;
+  }
+
+  /* Smooth card hover lift */
+  .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(92, 99, 242, 0.08), 0 4px 10px rgba(0, 0, 0, 0.04);
+  }
+}
+
+/* Markdown content via @tailwindcss/typography */
+.prose {
+  @apply text-gray-700 leading-relaxed;
+}
+.prose h1, .prose h2, .prose h3 {
+  @apply text-gray-900 font-bold;
+}
+.prose a {
+  @apply text-primary-600 no-underline hover:underline;
+}
+.prose img {
+  @apply rounded-xl;
+}
+.prose code {
+  @apply bg-gray-100 text-primary-700 px-1.5 py-0.5 rounded font-mono text-sm before:content-none after:content-none;
+}
+.prose pre {
+  @apply bg-gray-900 text-gray-100 rounded-xl;
+}
+.prose blockquote {
+  @apply border-l-4 border-primary-300 bg-primary-50 not-italic text-gray-700;
+}
