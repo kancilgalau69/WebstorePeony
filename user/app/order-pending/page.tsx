@@ -1,7 +1,7 @@
 "use client";
 import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 function OrderPendingInner() {
@@ -16,6 +16,10 @@ function OrderPendingInner() {
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [timeLeft, setTimeLeft] = useState(15 * 60)
   const [expiryTs, setExpiryTs] = useState<number | null>(null)
+  // Guards so background polling and expiry never race into duplicate redirects
+  // or overlapping status requests.
+  const redirectingRef = useRef(false)
+  const pollInFlightRef = useRef(false)
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -49,10 +53,14 @@ function OrderPendingInner() {
       router.push('/')
     }
 
-    if (qrString) {
-      const encodedQr = encodeURIComponent(qrString)
-      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedQr}`
-      setQrCodeUrl(qrImageUrl)
+    if (qrString || qrUrl) {
+      if (qrString) {
+        const encodedQr = encodeURIComponent(qrString)
+        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedQr}`
+        setQrCodeUrl(qrImageUrl)
+      } else if (qrUrl) {
+        setQrCodeUrl(qrUrl)
+      }
 
       const expiryKey = `qris_expiry_${orderId}`
       const existing = expiryKey ? localStorage.getItem(expiryKey) : null
@@ -87,39 +95,64 @@ function OrderPendingInner() {
   useEffect(() => {
     if (!orderId && !transactionId) return
 
+    const goToSuccess = async () => {
+      if (redirectingRef.current) return
+      redirectingRef.current = true
+      if (orderId) {
+        await waitForOrderReady(orderId)
+      }
+      router.push(`/order-success?orderId=${orderId}`)
+    }
+
+    const goToFailed = (reason: string) => {
+      if (redirectingRef.current) return
+      redirectingRef.current = true
+      router.push(`/order-failed?orderId=${orderId}&reason=${reason}`)
+    }
+
     const checkStatus = async () => {
+      // Skip if a previous poll is still running or we're already leaving.
+      if (pollInFlightRef.current || redirectingRef.current) return
+      pollInFlightRef.current = true
       try {
         const response = await fetch('/api/payment-status', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             order_id: orderId,
-            transaction_id: transactionId 
+            transaction_id: transactionId,
           }),
         })
 
         const data = await response.json()
 
         if (data.status === 'settlement' || data.status === 'capture') {
-          if (orderId) {
-            await waitForOrderReady(orderId)
-          }
-          router.push(`/order-success?orderId=${orderId}`)
+          await goToSuccess()
         } else if (data.status === 'cancel' || data.status === 'deny' || data.status === 'expire') {
-          router.push(`/order-failed?orderId=${orderId}&reason=${data.status}`)
+          goToFailed(data.status)
         }
       } catch (error) {
         console.error('Auto-check error:', error)
+      } finally {
+        pollInFlightRef.current = false
       }
     }
 
     checkStatus()
-    const interval = setInterval(checkStatus, 10000)
+    const interval = setInterval(() => {
+      // Stop polling once the QR has expired; send the buyer to the failed page.
+      if (expiryTs && Date.now() >= expiryTs) {
+        clearInterval(interval)
+        goToFailed('expire')
+        return
+      }
+      checkStatus()
+    }, 5000)
 
     return () => clearInterval(interval)
-  }, [orderId, transactionId, router])
+  }, [orderId, transactionId, router, expiryTs])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -206,12 +239,16 @@ function OrderPendingInner() {
       const data = await response.json()
 
       if (data.status === 'settlement' || data.status === 'capture') {
+        if (redirectingRef.current) return
+        redirectingRef.current = true
         alert('✅ Pembayaran berhasil! Pesanan Anda akan segera diproses.')
         if (orderId) {
           await waitForOrderReady(orderId)
         }
         router.push(`/order-success?orderId=${orderId}`)
       } else if (data.status === 'cancel' || data.status === 'deny' || data.status === 'expire') {
+        if (redirectingRef.current) return
+        redirectingRef.current = true
         router.push(`/order-failed?orderId=${orderId}&reason=${data.status}`)
       } else if (data.status === 'pending') {
         alert('⏳ Pembayaran masih pending. Mohon tunggu atau coba lagi.')
@@ -227,7 +264,7 @@ function OrderPendingInner() {
 
   return (
     <div className="max-w-2xl mx-auto py-6 animate-fadeIn">
-      {qrCodeUrl && qrString ? (
+      {qrCodeUrl ? (
         <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 md:p-8 shadow-xs text-center space-y-6">
           <h1 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B]">
             Pembayaran QRIS 🌸

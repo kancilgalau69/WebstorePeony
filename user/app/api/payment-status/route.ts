@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseServerKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  ''
+
+const supabase = createClient(supabaseUrl, supabaseServerKey)
 
 export async function POST(request: NextRequest) {
   let requestOrderId = ''
@@ -21,6 +31,121 @@ export async function POST(request: NextRequest) {
     const apiBase = isProduction
       ? 'https://api.midtrans.com'
       : 'https://api.sandbox.midtrans.com'
+
+    // Fetch order from DB to know the provider
+    const { data: orderInfo } = await supabase
+      .from('orders')
+      .select('payment_provider, status')
+      .eq('order_id', order_id)
+      .single()
+
+    const provider = orderInfo?.payment_provider || 'midtrans'
+
+    if (provider === 'tokopay') {
+      // If webhook already settled/failed the order, short-circuit from DB.
+      if (orderInfo?.status === 'completed') {
+        return NextResponse.json({
+          success: true,
+          status: 'settlement',
+          transaction_id,
+          order_id,
+          statusMessage: getStatusMessage('settlement'),
+        })
+      }
+      if (orderInfo?.status === 'cancelled' || orderInfo?.status === 'failed' || orderInfo?.status === 'expired') {
+        return NextResponse.json({
+          success: true,
+          status: 'cancel',
+          transaction_id,
+          order_id,
+          statusMessage: getStatusMessage('cancel'),
+        })
+      }
+
+      // Otherwise, actively poll Tokopay so dev (no public webhook) still works.
+      const merchantId = process.env.TOKOPAY_MERCHANT_ID || ''
+      const secretKey = process.env.TOKOPAY_SECRET_KEY || ''
+
+      if (!merchantId || !secretKey) {
+        // No credentials to poll with; fall back to pending.
+        return NextResponse.json({
+          success: true,
+          status: 'pending',
+          transaction_id,
+          order_id,
+          statusMessage: getStatusMessage('pending'),
+        })
+      }
+
+      const params = new URLSearchParams({
+        merchant_id: merchantId,
+        secret: secretKey,
+        ref_id: String(order_id),
+      })
+      const tokopayUrl = `https://api.tokopay.id/v1/check-order?${params.toString()}`
+
+      let mappedStatus = 'pending'
+      try {
+        const tpRes = await fetch(tokopayUrl, { headers: { Accept: 'application/json' } })
+        const tpText = await tpRes.text()
+        const tpJson = JSON.parse(tpText)
+        // Actual payment status is nested in data.status (Unpaid/Success/Completed/Failed).
+        const paymentStatus = String(tpJson?.data?.status || '').toLowerCase()
+
+        logInfo('Payment Status', 'Tokopay status polled', {
+          orderId: order_id,
+          paymentStatus,
+        })
+
+        if (paymentStatus === 'success' || paymentStatus === 'completed') {
+          mappedStatus = 'settlement'
+        } else if (paymentStatus === 'failed' || paymentStatus === 'canceled' || paymentStatus === 'expired') {
+          mappedStatus = 'cancel'
+        }
+
+        // Auto-trigger local webhook on settlement (parity with Midtrans path).
+        if (mappedStatus === 'settlement') {
+          const reffId = tpJson?.data?.reff_id || order_id
+          const signature = crypto
+            .createHash('md5')
+            .update(`${merchantId}:${secretKey}:${reffId}`)
+            .digest('hex')
+
+          const webhookPayload = {
+            reff_id: reffId,
+            reference: tpJson?.data?.trx_id,
+            status: tpJson?.data?.status,
+            signature,
+            data: tpJson?.data || {},
+          }
+
+          const webhookUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}/api/webhook`
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(webhookPayload),
+          }).catch((err) => {
+            logWarn('Payment Status', 'Tokopay local webhook trigger failed', {
+              orderId: order_id,
+              error: err?.message,
+            })
+          })
+        }
+      } catch (tpErr: any) {
+        logWarn('Payment Status', 'Tokopay status poll failed (non-fatal)', {
+          orderId: order_id,
+          error: tpErr?.message,
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        status: mappedStatus,
+        transaction_id,
+        order_id,
+        statusMessage: getStatusMessage(mappedStatus),
+      })
+    }
 
     // Check transaction status from Midtrans API
     const auth = Buffer.from(String(serverKey) + ':').toString('base64')

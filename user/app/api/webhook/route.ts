@@ -682,7 +682,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const orderId = body?.order_id
+    // Midtrans uses `order_id`; Tokopay callback uses `reff_id` (double-f).
+    // `ref_id` is kept as a defensive fallback for status-check style payloads.
+    const orderId = body?.order_id || body?.reff_id || body?.ref_id
 
     if (orderId && (orderId.startsWith('MKT-') || orderId.startsWith('MKT-PBS-'))) {
       const targetUrl = process.env.MARKET_STORE_WEBHOOK_URL || 'http://localhost:3007/api/webhook'
@@ -731,42 +733,75 @@ export async function POST(request: NextRequest) {
     }
 
     logInfo('WEBHOOK', 'Notification received', {
-      orderId: body?.order_id,
-      transactionStatus: body?.transaction_status,
-      paymentType: body?.payment_type,
-      grossAmount: body?.gross_amount,
-      statusCode: body?.status_code,
-      fraudStatus: body?.fraud_status,
+      orderId: orderId,
+      bodyPreview: JSON.stringify(body).slice(0, 200)
     })
 
-    // Verify signature from Midtrans
-    const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
-    const statusCode = body.status_code
-    const grossAmount = body.gross_amount
-    const signatureKey = body.signature_key
+    const isTokopay = (body.ref_id !== undefined || body.reff_id !== undefined) && body.signature !== undefined
+    let transactionStatus = ''
+    let paymentType = ''
+    let grossAmount: any = undefined
 
-    // Create signature: SHA512(order_id + status_code + gross_amount + SERVER_KEY)
-    const rawSignature = orderId + statusCode + grossAmount + serverKey
-    const calculatedSignature = crypto
-      .createHash('sha512')
-      .update(rawSignature)
-      .digest('hex')
+    if (isTokopay) {
+      logInfo('WEBHOOK', 'Processing Tokopay webhook signature')
+      const merchantId = process.env.TOKOPAY_MERCHANT_ID || ''
+      const secretKey = process.env.TOKOPAY_SECRET_KEY || ''
+      // Tokopay signature formula: md5(merchant_id:secret:reff_id)
+      const tokopayOrderId = body.reff_id || body.ref_id || orderId
+      const calculatedSignature = crypto.createHash('md5').update(`${merchantId}:${secretKey}:${tokopayOrderId}`).digest('hex')
 
-    logInfo('WEBHOOK', 'Signature check', {
-      orderId,
-      calculated: calculatedSignature.substring(0, 16),
-      received: String(signatureKey || '').substring(0, 16),
-    })
+      if (calculatedSignature !== body.signature) {
+        logWarn('WEBHOOK', 'Tokopay signature verification failed', { orderId: tokopayOrderId })
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      }
+      
+      logInfo('WEBHOOK', 'Tokopay signature verification passed', { orderId })
 
-    if (calculatedSignature !== signatureKey) {
-      logWarn('WEBHOOK', 'Signature verification failed', { orderId })
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      )
+      // Tokopay statuses: Unpaid, Success, Completed, Proses Callback, Failed
+      const tpStatus = String(body.status ?? '').toLowerCase()
+      if (tpStatus === 'success' || tpStatus === 'completed' || body.status === 1 || body.status === true) {
+        transactionStatus = 'settlement'
+      } else if (tpStatus === 'failed' || tpStatus === 'canceled' || tpStatus === 'cancelled' || tpStatus === 'expired') {
+        transactionStatus = 'cancel'
+      } else {
+        transactionStatus = 'pending'
+      }
+      paymentType = body?.data?.payment_channel || body.metode || 'tokopay'
+      // Tokopay reports paid amounts under data.total_dibayar / total_diterima.
+      grossAmount = body?.data?.total_dibayar ?? body?.data?.nominal ?? undefined
+    } else {
+      // Verify signature from Midtrans
+      const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
+      const statusCode = body.status_code
+      grossAmount = body.gross_amount
+      const signatureKey = body.signature_key
+
+      // Create signature: SHA512(order_id + status_code + gross_amount + SERVER_KEY)
+      const rawSignature = orderId + statusCode + grossAmount + serverKey
+      const calculatedSignature = crypto
+        .createHash('sha512')
+        .update(rawSignature)
+        .digest('hex')
+
+      logInfo('WEBHOOK', 'Signature check', {
+        orderId,
+        calculated: calculatedSignature.substring(0, 16),
+        received: String(signatureKey || '').substring(0, 16),
+      })
+
+      if (calculatedSignature !== signatureKey) {
+        logWarn('WEBHOOK', 'Signature verification failed', { orderId })
+        return NextResponse.json(
+          { error: 'Invalid signature' },
+          { status: 401 }
+        )
+      }
+
+      logInfo('WEBHOOK', 'Midtrans signature verification passed', { orderId })
+
+      transactionStatus = body.transaction_status
+      paymentType = body.payment_type
     }
-
-    logInfo('WEBHOOK', 'Signature verification passed', { orderId })
 
     // Load existing order metadata for source and idempotency decisions
     const { data: existingOrder } = await supabase
@@ -777,10 +812,6 @@ export async function POST(request: NextRequest) {
 
     const orderSource = resolveOrderSource(existingOrder)
     const previousStatus = String(existingOrder?.status || '').toLowerCase()
-
-    // Get transaction status
-    const transactionStatus = body.transaction_status
-    const paymentType = body.payment_type
 
     logInfo('WEBHOOK', 'Transaction parsed', {
       orderId,
@@ -1145,10 +1176,11 @@ export async function POST(request: NextRequest) {
 
       await triggerBotCatalogRefresh(orderId, transactionStatus)
 
-      return NextResponse.json({ message: 'Payment received' }, { status: 200 })
+      // `status: true` is required by Tokopay to acknowledge the callback (stops retries).
+      return NextResponse.json({ status: true, message: 'Payment received' }, { status: 200 })
     } else if (transactionStatus === 'pending') {
       logInfo('WEBHOOK', 'Payment pending', { orderId })
-      return NextResponse.json({ message: 'Payment pending' }, { status: 200 })
+      return NextResponse.json({ status: true, message: 'Payment pending' }, { status: 200 })
     } else if (
       transactionStatus === 'deny' ||
       transactionStatus === 'cancel' ||
@@ -1249,7 +1281,7 @@ export async function POST(request: NextRequest) {
       await triggerBotCatalogRefresh(orderId, String(transactionStatus || 'cancelled'))
 
       return NextResponse.json(
-        { message: `Payment ${transactionStatus}` },
+        { status: true, message: `Payment ${transactionStatus}` },
         { status: 200 }
       )
     } else if (transactionStatus === 'refund') {
@@ -1266,10 +1298,10 @@ export async function POST(request: NextRequest) {
           error: normalizeErrorMessage(err),
         })
       }
-      return NextResponse.json({ message: 'Refund processed' }, { status: 200 })
+      return NextResponse.json({ status: true, message: 'Refund processed' }, { status: 200 })
     }
 
-    return NextResponse.json({ message: 'OK' }, { status: 200 })
+    return NextResponse.json({ status: true, message: 'OK' }, { status: 200 })
   } catch (error: any) {
     logError('WEBHOOK', 'Unhandled webhook error', {
       error: error?.message || String(error),

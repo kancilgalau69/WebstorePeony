@@ -660,6 +660,210 @@ export async function POST(request: NextRequest) {
     const serverKey = process.env.MIDTRANS_SERVER_KEY
     const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
 
+    // Get active payment gateway from settings
+    let activeGateway = 'midtrans'
+    try {
+      const { data: settingsData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'active_payment_gateway')
+        .single()
+      
+      if (settingsData && settingsData.value) {
+        activeGateway = settingsData.value.toLowerCase()
+      }
+    } catch (err) {
+      logWarn('CHECKOUT', 'Failed to get active_payment_gateway, defaulting to midtrans', { error: String(err) })
+    }
+
+    logInfo('CHECKOUT', `Active payment gateway: ${activeGateway}`)
+
+    if (activeGateway === 'tokopay') {
+      const merchantId = process.env.TOKOPAY_MERCHANT_ID
+      const secretKey = process.env.TOKOPAY_SECRET_KEY
+
+      if (!merchantId || !secretKey) {
+        logError('CHECKOUT', 'Tokopay credentials not configured')
+        return NextResponse.json(
+          { error: 'Server belum dikonfigurasi (Tokopay)' },
+          { status: 500 }
+        )
+      }
+
+      // Generate signature MD5(merchant_id:secret_key:ref_id)
+      const crypto = require('crypto')
+      const signatureStr = `${merchantId}:${secretKey}:${orderId}`
+      const signature = crypto.createHash('md5').update(signatureStr).digest('hex')
+
+      const isDev = process.env.NODE_ENV !== 'production'
+      const devWebhook = process.env.MIDTRANS_DEV_WEBHOOK_URL // Reusing the same dev webhook env for simplicity if needed
+
+      logInfo('CHECKOUT', 'Creating Tokopay transaction', {
+        orderId,
+        nominal: totalAmount,
+        customerEmail: normalizedCustomerEmail,
+      })
+
+      const reff_id = orderId;
+      // We already have signature generated above using orderId as ref_id.
+      // Note: Tokopay Advanced uses reff_id which is identical to orderId.
+
+      // Align Tokopay QR expiry with the 15-minute order expiry (expired_ts = Unix seconds).
+      const expiredTs = Math.floor((Date.now() + 15 * 60000) / 1000)
+
+      const tokopayPayload = {
+        merchant_id: merchantId,
+        kode_channel: 'QRISREALTIME', // Default Tokopay method
+        reff_id: reff_id,
+        amount: Math.round(totalAmount),
+        customer_name: normalizedCustomerName || 'Customer',
+        customer_email: normalizedCustomerEmail || 'customer@example.com',
+        customer_phone: normalizedCustomerPhone || '081111111111',
+        redirect_url: 'https://tokopay.id',
+        expired_ts: expiredTs,
+        signature: signature
+      }
+
+      const tokopayResponse = await fetch('https://api.tokopay.id/v1/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(tokopayPayload)
+      })
+
+      const tokopayText = await tokopayResponse.text()
+      let tokopayData
+      try {
+        tokopayData = JSON.parse(tokopayText)
+      } catch (e) {
+        logError('CHECKOUT', 'Failed to parse Tokopay response', { tokopayText })
+        throw new Error(`Tokopay response not JSON: ${tokopayText}`)
+      }
+
+      // On create-order, top-level `status` reflects the create result ("Success").
+      const transactionInfo = tokopayData.data || {}
+      const createOk =
+        tokopayData.status === 'Success' ||
+        tokopayData.status === true ||
+        tokopayData.status === 1
+      const hasQr = Boolean(
+        transactionInfo.qr_link ||
+        transactionInfo.qr_string ||
+        transactionInfo.pay_url ||
+        transactionInfo.checkout_url
+      )
+
+      if (!tokopayResponse.ok || (!createOk && !hasQr)) {
+        logError('CHECKOUT', 'Tokopay create order failed', {
+          status: tokopayResponse.status,
+          bodyPreview: tokopayText.slice(0, 240)
+        })
+        throw new Error(`Tokopay create order error: ${tokopayText}`)
+      }
+
+      logInfo('CHECKOUT', 'Tokopay transaction created', {
+        orderId,
+        transactionId: transactionInfo.trx_id,
+      })
+
+      // For QRIS: qr_string is the raw payload (client renders to QR image),
+      // qr_link is the PNG URL, pay_url is the hosted checkout page.
+      const qrString = transactionInfo.qr_string || null
+      const qrCodeUrl = transactionInfo.qr_link || transactionInfo.pay_url || transactionInfo.checkout_url
+      
+      // Reserve items
+      const reservationResults: Array<any> = []
+      for (const item of serverItems) {
+        try {
+          const { data: reserveResult, error: reserveError } = await supabase.rpc('reserve_items_for_order', {
+            p_order_id: orderId,
+            p_product_code: item.product.kode,
+            p_quantity: item.quantity,
+          })
+          if (reserveError) throw reserveError
+          reservationResults.push({ success: true })
+        } catch (err: any) {
+           logError('CHECKOUT', 'Reserve failed', { orderId, error: err.message })
+           reservationResults.push({ success: false })
+        }
+      }
+
+      if (reservationResults.some(r => !r.success)) {
+        await releaseReservedItemsForOrder(orderId)
+        return NextResponse.json({ error: 'Gagal mereservasi produk, silakan coba lagi' }, { status: 400 })
+      }
+
+      // 8. Insert Order ke Database
+      const dbOrderItems = serverItems.map((item) => ({
+        product_id: item.product.id,
+        product_code: item.product.kode,
+        product_name: item.product.nama,
+        quantity: item.quantity,
+        price: item.product.price,
+      }))
+      
+      const { data: orderData, error: insertError } = await supabase
+        .from('orders')
+        .insert({
+          order_id: orderId,
+          user_web_id: sessionUser ? sessionUser.userId : null,
+          customer_name: normalizedCustomerName,
+          customer_email: normalizedCustomerEmail,
+          customer_phone: normalizedCustomerPhone,
+          status: 'pending',
+          total_amount: totalAmount,
+          payment_method: 'qris', // or tokopay_qris
+          payment_provider: 'tokopay',
+          payment_url: qrCodeUrl,
+          items: dbOrderItems,
+          promo_code: rawPromoCodeForPreCharge || null,
+          promo_discount: preChargePromoDiscount,
+          affiliate_code: normalizedAffiliateCode || null,
+          user_ref: sessionUser ? `web:${sessionUser.userId}` : null,
+          expired_at: new Date(Date.now() + 15 * 60000).toISOString(),
+        })
+        .select()
+        .single()
+
+      if (insertError) {
+        logError('CHECKOUT', 'Gagal membuat order', {
+          orderId,
+          code: insertError.code,
+          message: insertError.message,
+        })
+        await releaseReservedItemsForOrder(orderId)
+        return NextResponse.json({ error: 'Gagal membuat pesanan (Database)' }, { status: 500 })
+      }
+
+      await sendNewOrderAdminNotification({
+        source: 'website',
+        orderId,
+        customerName: normalizedCustomerName,
+        customerEmail: normalizedCustomerEmail,
+        customerPhone: normalizedCustomerPhone,
+        totalAmount,
+        items: dbOrderItems,
+      })
+
+      logInfo('CHECKOUT', 'Order successfully created', {
+        orderId,
+        itemsCount: serverItems.length,
+      })
+
+      return NextResponse.json({
+        success: true,
+        orderId: orderId,
+        snapToken: '', // Not used for Tokopay
+        redirectUrl: `/payment/${orderId}`,
+        checkoutUrl: qrCodeUrl,
+        qrString: qrString,
+        qrUrl: qrCodeUrl,
+        transactionId: transactionInfo.trx_id
+      })
+    }
+
     // Kalau belum set Midtrans key, tetap seperti logika kamu: balik test token
     if (!serverKey || !clientKey) {
       logError('CHECKOUT', 'Midtrans credentials not configured')
@@ -1069,6 +1273,8 @@ export async function POST(request: NextRequest) {
           total_amount: totalAmount,
           status: 'pending',
           payment_method: 'qris',
+          payment_provider: 'midtrans',
+          payment_url: qrCodeUrl,
           items: itemsArray,
           // Flag for webhook: has market store items to finalize
           // user_id nullable untuk web (telegram bot users)

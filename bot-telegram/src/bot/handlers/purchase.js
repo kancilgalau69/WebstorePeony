@@ -16,6 +16,8 @@ import { reserveStock, finalizeStock, releaseStock } from '../../database/stock.
 import { upsertUser } from '../../database/users.js';
 import { createOrder, createOrderItems, updateOrderStatus, markItemsAsSent } from '../../database/orders.js';
 import { createMidtransQRISCharge, midtransStatus } from '../../payments/midtrans.js';
+import { createTokopayCharge, tokopayStatus } from '../../payments/tokopay.js';
+import { supabase } from '../../database/supabase.js';
 
 function getBotPrice(product) {
   const value = Number(product?.harga_bot ?? product?.harga_web ?? 0);
@@ -190,15 +192,55 @@ export async function handlePurchase(ctx, productCode, quantity = 1) {
     const unitPrice = getBotPrice(product);
     const totalAmount = unitPrice * quantity;
     
-    // Step 2: Create Midtrans QRIS charge
-    const chargeResult = await createMidtransQRISCharge({
-      order_id: orderId,
-      gross_amount: totalAmount,
-      product_name: product.nama,
-      customer_name: ctx.from.first_name || 'Customer',
-    });
+    // Get active payment gateway
+    let activeGateway = 'midtrans';
+    try {
+      const { data: settingsData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'active_payment_gateway')
+        .single();
+      if (settingsData && settingsData.value) {
+        activeGateway = settingsData.value.toLowerCase();
+      }
+    } catch (err) {
+      console.warn('[CHECKOUT] Failed to get active_payment_gateway, defaulting to midtrans', err.message);
+    }
+
+    let chargeResult;
+    let paymentProvider = activeGateway;
     
-    if (!chargeResult?.qr_string && !chargeResult?.qr_url) {
+    if (activeGateway === 'tokopay') {
+      try {
+        chargeResult = await createTokopayCharge({
+          order_id: orderId,
+          gross_amount: totalAmount,
+          customer_name: ctx.from.first_name || 'Customer',
+          customer_email: 'telegram-user@local.domain',
+          customer_phone: '08000000000',
+          ttl_ms: BOT_CONFIG.PAYMENT_TTL_MS,
+        });
+      } catch (err) {
+        console.error('[TOKOPAY ERROR]', err);
+        chargeResult = null;
+      }
+    } else {
+      // Default to Midtrans
+      paymentProvider = 'midtrans';
+      try {
+        chargeResult = await createMidtransQRISCharge({
+          order_id: orderId,
+          gross_amount: totalAmount,
+          product_name: product.nama,
+          customer_name: ctx.from.first_name || 'Customer',
+        });
+      } catch (err) {
+        console.error('[MIDTRANS ERROR]', err);
+        chargeResult = null;
+      }
+    }
+    
+    if (!chargeResult || (!chargeResult.qr_string && !chargeResult.qr_url)) {
       // Release stock if payment creation fails
       await releaseStock({ order_id: orderId, reason: 'payment_creation_failed' });
       await ctx.telegram.deleteMessage(ctx.chat.id, processingMsg.message_id);
@@ -224,7 +266,7 @@ export async function handlePurchase(ctx, productCode, quantity = 1) {
         total_amount: totalAmount,
         payment_url: chargeResult.payment_url || chargeResult.qr_url || null,
         transaction_id: chargeResult.transaction_id,
-        payment_provider: 'midtrans',
+        payment_provider: paymentProvider,
         midtrans_token: chargeResult.token || null,
         user_ref: userRef,
         expired_at: new Date(chargeResult.expired_at || Date.now() + BOT_CONFIG.PAYMENT_TTL_MS).toISOString(),
@@ -305,6 +347,7 @@ ${chargeResult.payment_url ? `\n🔗 Link Payment: ${chargeResult.payment_url}` 
       unitPrice,
       total: totalAmount,
       status: 'pending',
+      paymentProvider: paymentProvider,
       qrMessageId: qrMessage.message_id,
       processingMessageId: processingMsg.message_id,
       createdAt: Date.now(),
@@ -356,7 +399,12 @@ function startPollingPaymentStatus(telegram, orderId) {
     );
     attempts++;
     try {
-      const status = await midtransStatus(orderId);
+      let status;
+      if (activeOrder.paymentProvider === 'tokopay') {
+        status = await tokopayStatus(orderId);
+      } else {
+        status = await midtransStatus(orderId);
+      }
       const transactionStatus = (status.transaction_status || '').toLowerCase();
       console.log(`[POLL] ${orderId} - Attempt ${attempts} - Status: ${transactionStatus}`);
 
@@ -739,7 +787,12 @@ async function handlePaymentTimeout(telegram, orderId) {
   
   try {
     // Check one more time
-    const status = await midtransStatus(orderId);
+    let status;
+    if (order.paymentProvider === 'tokopay') {
+      status = await tokopayStatus(orderId);
+    } else {
+      status = await midtransStatus(orderId);
+    }
     const transactionStatus = (status.transaction_status || '').toLowerCase();
     
     if (transactionStatus === 'settlement' || transactionStatus === 'capture') {

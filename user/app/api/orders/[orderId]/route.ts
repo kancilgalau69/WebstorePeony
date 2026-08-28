@@ -424,9 +424,12 @@ export async function GET(
     }
 
     const normalizedDbStatus: string = normalizeStatus(orderData.status)
+    const paymentProvider = String(orderData.payment_provider || 'midtrans').toLowerCase()
+    const isMidtransOrder = paymentProvider === 'midtrans'
 
-    // FALLBACK: If status still pending after 30s, check Midtrans directly and update DB if paid
-    if (normalizedDbStatus === 'pending') {
+    // FALLBACK: If status still pending after 30s, check Midtrans directly and update DB if paid.
+    // Only applies to Midtrans orders; Tokopay is reconciled via /api/payment-status + webhook.
+    if (normalizedDbStatus === 'pending' && isMidtransOrder) {
       const createdAt = new Date(orderData.created_at).getTime()
       const now = Date.now()
       const elapsedSeconds = (now - createdAt) / 1000
@@ -889,8 +892,10 @@ export async function GET(
       })
     }
 
-    // If not completed in DB, double-check Midtrans live status
-    const midtrans = await getFromMidtransRaw(orderId)
+    // If not completed in DB, double-check Midtrans live status (Midtrans orders only)
+    const midtrans = isMidtransOrder
+      ? await getFromMidtransRaw(orderId)
+      : { success: false as const }
     if (midtrans.success) {
       const normalizedMidtransStatus = normalizeStatus(midtrans.status)
       const baseItems = itemsPayload.length ? itemsPayload : midtrans.items

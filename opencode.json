@@ -4,12 +4,12 @@
     "9router": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "baseURL": "http://127.0.0.1:20128/v1",
-        "apiKey": "sk-dd280c071621651a-xby4wm-1e189a5b"
+        "baseURL": "https://true-sota.com/v1",
+        "apiKey": "sk-ts-5d8098065e0229b94ed767fe510389aeb10559554941c2b730f733f5ee43d994"
       },
       "models": {
-        "cx/gpt-5.5-xhigh": {
-          "name": "cx/gpt-5.5-xhigh",
+        "claude-opus-4-8": {
+          "name": "claude-opus-4-8",
           "modalities": {
             "input": [
               "text",
@@ -23,12 +23,12 @@
       }
     }
   },
-  "model": "9router/cx/gpt-5.5-xhigh",
+  "model": "9router/claude-opus-4-8",
   "agent": {
     "explorer": {
       "description": "Fast explorer subagent for codebase exploration",
       "mode": "subagent",
-      "model": "9router/kr/claude-sonnet-4.5-thinking"
+      "model": "9router/claude-opus-4-8"
     }
   }
 }

@@ -264,6 +264,20 @@ export default function SettingsPage() {
                 <option value="MYR">MYR (Malaysian Ringgit)</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Active Payment Gateway
+              </label>
+              <select
+                value={storeSettings.active_payment_gateway}
+                onChange={(e) => setStoreSettings({ ...storeSettings, active_payment_gateway: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="midtrans">Midtrans</option>
+                <option value="tokopay">Tokopay</option>
+              </select>
+            </div>
           </div>
         </div>
 
