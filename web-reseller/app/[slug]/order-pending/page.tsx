@@ -28,11 +28,20 @@ export default function OrderPendingPage() {
   const router = useRouter();
   const orderId = searchParams.get("order_id") || "";
   const paymentUrl = searchParams.get("payment_url") || "";
+  const qrStringParam = searchParams.get("qr_string") || "";
+  const amountParam = searchParams.get("amount") || "";
+  const adminFeeParam = searchParams.get("admin_fee") || "";
+  const subtotalParam = searchParams.get("subtotal") || "";
   const { store } = useStore();
   const themeColor = store?.warna_tema || "#3B82F6";
   const [status, setStatus] = useState("pending");
   const [checking, setChecking] = useState(false);
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
+
+  // Prefer the raw QRIS payload (renders reliably); fall back to a QR image URL.
+  const qrImageSrc = qrStringParam
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrStringParam)}`
+    : paymentUrl;
 
   const [countdown, setCountdown] = useState(15 * 60); // 15 minutes
   const inFlightRef = useRef(false);
@@ -56,17 +65,25 @@ export default function OrderPendingPage() {
   // Poll payment status
   useEffect(() => {
     if (!orderId) return;
+    if (status === "cancelled" || status === "expired" || status === "completed") return;
 
     // Check immediately
     checkPaymentStatus();
 
     const interval = setInterval(() => {
+      // Stop polling once the QR has expired.
+      const elapsed = Math.floor((Date.now() - createdAtRef.current) / 1000);
+      if (elapsed >= 15 * 60) {
+        setStatus("expired");
+        clearInterval(interval);
+        return;
+      }
       if (inFlightRef.current) return;
       checkPaymentStatus();
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [orderId, slug]);
+  }, [orderId, slug, status]);
 
   // Fetch order detail on mount (for items/total display while pending)
   useEffect(() => {
@@ -149,9 +166,9 @@ export default function OrderPendingPage() {
   const isUrgent = countdown < 120;
 
   function downloadQris() {
-    if (!paymentUrl) return;
+    if (!qrImageSrc) return;
     const a = document.createElement("a");
-    a.href = paymentUrl;
+    a.href = qrImageSrc;
     a.download = `QRIS-${orderId}.png`;
     a.target = "_blank";
     a.click();
@@ -175,11 +192,11 @@ export default function OrderPendingPage() {
       </div>
 
       {/* QRIS */}
-      {paymentUrl && (
+      {qrImageSrc && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5 text-center">
           <p className="text-sm font-medium text-gray-700 mb-3">Scan QR Code untuk membayar</p>
           <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 inline-block">
-            <img src={paymentUrl} alt="QRIS Payment" className="w-56 h-56 mx-auto" />
+            <img src={qrImageSrc} alt="QRIS Payment" className="w-56 h-56 mx-auto" />
           </div>
           <div className="mt-3">
             <button
@@ -190,6 +207,35 @@ export default function OrderPendingPage() {
               Download QR
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Total Payment */}
+      {amountParam && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-1.5">
+          {subtotalParam && adminFeeParam && Number(adminFeeParam) > 0 && (
+            <>
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Subtotal</span>
+                <span className="text-gray-900">Rp {Number(subtotalParam).toLocaleString("id-ID")}</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Biaya Admin (kode unik)</span>
+                <span className="text-gray-900">Rp {Number(adminFeeParam).toLocaleString("id-ID")}</span>
+              </div>
+            </>
+          )}
+          <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+            <span className="text-sm font-bold text-gray-900">Total Pembayaran</span>
+            <span className="text-xl font-bold" style={{ color: themeColor }}>
+              Rp {Number(amountParam).toLocaleString("id-ID")}
+            </span>
+          </div>
+          {adminFeeParam && Number(adminFeeParam) > 0 && (
+            <p className="text-[11px] text-gray-500 pt-1">
+              ⚠️ Bayar tepat sesuai nominal di atas (termasuk kode unik) agar pembayaran terverifikasi otomatis.
+            </p>
+          )}
         </div>
       )}
 

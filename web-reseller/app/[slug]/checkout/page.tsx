@@ -24,6 +24,44 @@ export default function CheckoutPage() {
   const captchaRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<number | null>(null);
 
+  // Payment preview (gateway + admin fee for Qiospay), shown before generating QRIS.
+  const [paymentInfo, setPaymentInfo] = useState<{
+    gateway: string; subtotal: number; adminFee: number; total: number;
+  } | null>(null);
+
+  const grandTotal = paymentInfo?.gateway === "qiospay"
+    ? totalPrice + (paymentInfo.adminFee || 0)
+    : totalPrice;
+
+  // Fetch payment preview whenever the cart changes so the customer sees the exact
+  // total (incl. Qiospay admin fee) before the QRIS is generated.
+  useEffect(() => {
+    if (!slug || items.length === 0) {
+      setPaymentInfo(null);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch(`/api/store/${slug}/payment-info`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: items.map((i) => ({ product_id: i.id, quantity: i.quantity, harga_jual: i.harga })),
+          }),
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setPaymentInfo(data);
+      } catch {
+        // Non-blocking; summary falls back to client-side total.
+      }
+    })();
+    return () => { cancelled = true; controller.abort(); };
+  }, [slug, items]);
+
   // Render (or re-render) the hCaptcha widget into captchaRef
   const renderCaptcha = () => {
     const hc = (window as any).hcaptcha;
@@ -120,6 +158,8 @@ export default function CheckoutPage() {
           })),
           ...form,
           captchaToken,
+          // Reuse the previewed Qiospay admin fee so charged total matches what was shown.
+          ...(paymentInfo?.gateway === "qiospay" && paymentInfo.adminFee ? { qiospayAdminFee: paymentInfo.adminFee } : {}),
         }),
       });
 
@@ -131,10 +171,16 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Redirect to payment or success
-      if (data.payment_url) {
+      // Redirect to payment page with QR + amount breakdown
+      if (data.qr_string || data.payment_url) {
         clearCart();
-        router.push(`/${slug}/order-pending?order_id=${data.order_id}&payment_url=${encodeURIComponent(data.payment_url)}`);
+        const params = new URLSearchParams({ order_id: data.order_id || "" });
+        if (data.qr_string) params.set("qr_string", data.qr_string);
+        if (data.payment_url) params.set("payment_url", data.payment_url);
+        if (data.total_amount) params.set("amount", String(data.total_amount));
+        if (data.admin_fee) params.set("admin_fee", String(data.admin_fee));
+        if (data.subtotal) params.set("subtotal", String(data.subtotal));
+        router.push(`/${slug}/order-pending?${params.toString()}`);
       } else {
         clearCart();
         router.push(`/${slug}/order-pending?order_id=${data.order_id}`);
@@ -293,7 +339,7 @@ export default function CheckoutPage() {
               ) : (
                 <>
                   <i className="fa-solid fa-qrcode"></i>
-                  <span>Bayar Rp {totalPrice.toLocaleString("id-ID")}</span>
+                  <span>Bayar Rp {grandTotal.toLocaleString("id-ID")}</span>
                 </>
               )}
             </button>
@@ -314,17 +360,34 @@ export default function CheckoutPage() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Biaya Admin</span>
-                  <span className="font-medium text-green-600">Gratis</span>
+                  <span className="text-gray-600">
+                    Biaya Admin
+                    {paymentInfo?.gateway === "qiospay" && paymentInfo.adminFee > 0 && (
+                      <span className="text-[10px] text-gray-400 ml-1">(kode unik)</span>
+                    )}
+                  </span>
+                  {paymentInfo?.gateway === "qiospay" && paymentInfo.adminFee > 0 ? (
+                    <span className="font-medium text-gray-900">
+                      Rp {paymentInfo.adminFee.toLocaleString("id-ID")}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-green-600">Gratis</span>
+                  )}
                 </div>
               </div>
 
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-lg font-bold text-gray-900">Total Pembayaran</span>
                 <span className="text-2xl font-bold text-blue-600">
-                  Rp {totalPrice.toLocaleString("id-ID")}
+                  Rp {grandTotal.toLocaleString("id-ID")}
                 </span>
               </div>
+
+              {paymentInfo?.gateway === "qiospay" && paymentInfo.adminFee > 0 && (
+                <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-6">
+                  ℹ️ Biaya admin Rp {paymentInfo.adminFee.toLocaleString("id-ID")} adalah kode unik untuk verifikasi pembayaran otomatis.
+                </p>
+              )}
 
               {/* Payment Info */}
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-4">

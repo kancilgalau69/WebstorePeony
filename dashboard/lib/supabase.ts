@@ -26,10 +26,13 @@ function parseProjectRefFromLegacyJwt(key: string): string | null {
 }
 
 export function createBrowserClient() {
-  return createSupabaseBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  // NOTE: NEXT_PUBLIC_* values are inlined at BUILD time. During static prerender
+  // (e.g. Railway build) these may be empty if not provided as build-time vars.
+  // Fall back to harmless placeholders so prerender doesn't crash; real auth/data
+  // calls run client-side in the browser where the inlined values are present.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key'
+  return createSupabaseBrowserClient(url, anonKey)
 }
 
 export function createServerClient() {

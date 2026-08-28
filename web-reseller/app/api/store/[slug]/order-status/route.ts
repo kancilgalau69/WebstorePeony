@@ -4,6 +4,8 @@ export const revalidate = 0
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { sendResellerOrderEmail } from '@/lib/email'
+import { tokopayStatus } from '@/lib/payments/tokopay'
+import { fetchQiospayMutasi, isCreditEntry } from '@/lib/payments/qiospay'
 
 const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
@@ -40,69 +42,85 @@ export async function GET(
       return NextResponse.json({ status: order.status, order_id: order.order_id }, { headers: NO_CACHE_HEADERS })
     }
 
-    // DB still shows pending - check Midtrans directly for real-time status
-    const midtransStatus = await checkMidtransStatus(orderId)
+    // DB still shows pending - resolve real-time status per active gateway.
+    const provider = String(order.payment_provider || 'midtrans').toLowerCase()
+    let resolvedStatus = 'pending'
+    let providerStatusLabel = ''
 
-    if (midtransStatus) {
-      const { transactionStatus, fraudStatus } = midtransStatus
-
-      let resolvedStatus = 'pending'
-      if (transactionStatus === 'capture' || transactionStatus === 'settlement') {
-        if (fraudStatus === 'accept' || !fraudStatus) {
-          resolvedStatus = 'completed'
-        }
-      } else if (transactionStatus === 'cancel' || transactionStatus === 'deny') {
-        resolvedStatus = 'cancelled'
-      } else if (transactionStatus === 'expire') {
-        resolvedStatus = 'expired'
+    if (provider === 'tokopay') {
+      try {
+        const tp = await tokopayStatus(orderId)
+        providerStatusLabel = tp.transactionStatus
+        if (tp.transactionStatus === 'settlement') resolvedStatus = 'completed'
+        else if (tp.transactionStatus === 'cancel') resolvedStatus = 'cancelled'
+      } catch (e: any) {
+        console.error('Tokopay status check error:', e?.message)
       }
+    } else if (provider === 'qiospay') {
+      // Qiospay has no per-order status API; match the unique amount in recent mutasi.
+      try {
+        const expectedAmount = Math.round(Number(order.total_amount))
+        const mutasi = await fetchQiospayMutasi()
+        const paid = mutasi.some((entry) => isCreditEntry(entry) && Math.round(entry.amount) === expectedAmount)
+        providerStatusLabel = paid ? 'success' : 'unpaid'
+        if (paid) resolvedStatus = 'completed'
+      } catch (e: any) {
+        console.error('Qiospay mutasi check error:', e?.message)
+      }
+    } else {
+      const midtransStatus = await checkMidtransStatus(orderId)
+      if (midtransStatus) {
+        const { transactionStatus, fraudStatus } = midtransStatus
+        providerStatusLabel = transactionStatus
+        if (transactionStatus === 'capture' || transactionStatus === 'settlement') {
+          if (fraudStatus === 'accept' || !fraudStatus) resolvedStatus = 'completed'
+        } else if (transactionStatus === 'cancel' || transactionStatus === 'deny') {
+          resolvedStatus = 'cancelled'
+        } else if (transactionStatus === 'expire') {
+          resolvedStatus = 'expired'
+        }
+      }
+    }
 
-      // If Midtrans shows a final status different from DB, sync it
-      if (resolvedStatus !== 'pending' && resolvedStatus !== order.status) {
-        try {
-          const { data: updated } = await supabase
-            .from('reseller_orders')
-            .update({
-              status: resolvedStatus,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('order_id', orderId)
-            .eq('status', 'pending') // Only update if still pending (avoid race condition with webhook)
-            .select('*')
-            .single()
+    // If a final status was resolved and differs from DB, sync + finalize/release.
+    if (resolvedStatus !== 'pending' && resolvedStatus !== order.status) {
+      try {
+        const { data: updated } = await supabase
+          .from('reseller_orders')
+          .update({
+            status: resolvedStatus,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('order_id', orderId)
+          .eq('status', 'pending') // Only update if still pending (avoid race with webhook)
+          .select('*')
+          .single()
 
-          // If we successfully claimed the status update and it's completed,
-          // run item finalization (same as webhook) to avoid stuck orders
-          if (updated && resolvedStatus === 'completed') {
-            await finalizeOrderItems(supabase, updated, orderId)
-          }
-
-          // If cancelled/expired, release reserved items
-          if (updated && (resolvedStatus === 'cancelled' || resolvedStatus === 'expired')) {
-            try {
-              await supabase.rpc('release_reserved_items', { p_order_id: orderId })
-            } catch {}
-          }
-        } catch (syncErr: any) {
-          console.error('Order status sync error:', syncErr)
+        if (updated && resolvedStatus === 'completed') {
+          await finalizeOrderItems(supabase, updated, orderId)
         }
 
-        return NextResponse.json({
-          status: resolvedStatus,
-          order_id: order.order_id,
-          midtrans_status: transactionStatus,
-        }, { headers: NO_CACHE_HEADERS })
+        if (updated && (resolvedStatus === 'cancelled' || resolvedStatus === 'expired')) {
+          try {
+            await supabase.rpc('release_reserved_items', { p_order_id: orderId })
+          } catch {}
+        }
+      } catch (syncErr: any) {
+        console.error('Order status sync error:', syncErr)
       }
 
       return NextResponse.json({
-        status: order.status,
+        status: resolvedStatus,
         order_id: order.order_id,
-        midtrans_status: transactionStatus,
+        provider_status: providerStatusLabel,
       }, { headers: NO_CACHE_HEADERS })
     }
 
-    // Midtrans check failed, return DB status as fallback
-    return NextResponse.json({ status: order.status, order_id: order.order_id }, { headers: NO_CACHE_HEADERS })
+    return NextResponse.json({
+      status: order.status,
+      order_id: order.order_id,
+      provider_status: providerStatusLabel,
+    }, { headers: NO_CACHE_HEADERS })
   } catch (err: any) {
     console.error('Order status error:', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500, headers: NO_CACHE_HEADERS })
