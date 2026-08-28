@@ -2,6 +2,64 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { buildDynamicQris, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
+import { createTokopayCharge } from '@/lib/payments/tokopay'
+
+const PAYMENT_TTL_MS = 15 * 60 * 1000 // 15 minutes
+
+async function getActiveGateway(supabase: any): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'active_payment_gateway')
+      .single()
+    if (data?.value) return String(data.value).toLowerCase()
+  } catch {
+    // default below
+  }
+  return 'midtrans'
+}
+
+/**
+ * Qiospay reconciles payments by amount (its callback has no order reference), so
+ * each pending Qiospay order gets a unique "admin fee" (1..MAX rupiah) added on top.
+ * `preferredCode` lets checkout reuse the fee previewed to the customer.
+ */
+async function computeUniqueQiospayAmount(
+  supabase: any,
+  baseAmount: number,
+  preferredCode?: number
+): Promise<{ amount: number; adminFee: number }> {
+  const base = Math.round(baseAmount)
+  const MAX = QIOSPAY_MAX_UNIQUE_CODE
+
+  try {
+    const { data: pendingOrders } = await supabase
+      .from('reseller_orders')
+      .select('total_amount')
+      .eq('payment_provider', 'qiospay')
+      .eq('status', 'pending')
+      .gte('total_amount', base + 1)
+      .lte('total_amount', base + MAX)
+
+    const taken = new Set<number>((pendingOrders || []).map((o: any) => Math.round(Number(o.total_amount))))
+
+    if (preferredCode && preferredCode >= 1 && preferredCode <= MAX && !taken.has(base + preferredCode)) {
+      return { amount: base + preferredCode, adminFee: preferredCode }
+    }
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const code = Math.floor(Math.random() * MAX) + 1
+      if (!taken.has(base + code)) return { amount: base + code, adminFee: code }
+    }
+    for (let code = 1; code <= MAX; code++) {
+      if (!taken.has(base + code)) return { amount: base + code, adminFee: code }
+    }
+  } catch (err: any) {
+    console.warn('Qiospay unique amount fallback:', err?.message)
+  }
+  return { amount: base + 1, adminFee: 1 }
+}
 
 // Rate limiting constants
 const RATE_LIMIT_REQUESTS_PER_IP = 3
@@ -337,6 +395,13 @@ export async function POST(
     const orderId = `RS-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 5).toUpperCase()}`
 
     // Reserve items for order
+    const releaseReserved = async () => {
+      try {
+        await supabase.rpc('release_reserved_items', { p_order_id: orderId })
+      } catch (err: any) {
+        console.warn('Release reserved items failed:', err?.message)
+      }
+    }
     for (const item of orderItems) {
       try {
         await supabase.rpc('reserve_items_for_order', {
@@ -350,60 +415,100 @@ export async function POST(
       }
     }
 
-    // Create QRIS payment via Midtrans
-    let paymentUrl = ''
-    let midtransToken = ''
+    // Determine active payment gateway
+    const activeGateway = await getActiveGateway(supabase)
+
+    // Payment result fields shared across gateways
+    let paymentUrl = ''            // QRIS image URL (Midtrans) or hosted pay page
+    let qrString = ''              // Raw QRIS payload (preferred for rendering)
     let transactionId = ''
+    let paymentProvider = activeGateway
+    let chargedAmount = totalAmount // amount actually billed (Qiospay adds admin fee)
+    let adminFee = 0
 
     try {
-      const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
-      const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true'
-      const baseUrl = isProduction
-        ? 'https://api.midtrans.com/v2/charge'
-        : 'https://api.sandbox.midtrans.com/v2/charge'
-
-      const chargePayload = {
-        payment_type: 'qris',
-        transaction_details: {
-          order_id: orderId,
-          gross_amount: totalAmount,
-        },
-        customer_details: {
-          first_name: normalizedCustomerName,
-          email: normalizedCustomerEmail,
-          phone: normalizedCustomerPhone,
-        },
-        qris: {
-          acquirer: 'gopay',
-        },
-      }
-
-      // Append webhook URL so Midtrans sends notification directly to this app
-      const devWebhook = process.env.MIDTRANS_DEV_WEBHOOK_URL || ''
-
-      const chargeRes = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Basic ${Buffer.from(serverKey + ':').toString('base64')}`,
-          ...(devWebhook ? { 'X-Append-Notification': devWebhook } : {}),
-        },
-        body: JSON.stringify(chargePayload),
-      })
-
-      const chargeData = await chargeRes.json()
-
-      if (chargeData.status_code === '201' || chargeData.status_code === '200') {
-        transactionId = chargeData.transaction_id
-        // Find QRIS URL
-        const qrisAction = chargeData.actions?.find((a: any) => a.name === 'generate-qr-code')
-        paymentUrl = qrisAction?.url || chargeData.actions?.[0]?.url || ''
+      if (activeGateway === 'tokopay') {
+        const charge = await createTokopayCharge({
+          orderId,
+          grossAmount: totalAmount,
+          customerName: normalizedCustomerName,
+          customerEmail: normalizedCustomerEmail,
+          customerPhone: normalizedCustomerPhone,
+          ttlMs: PAYMENT_TTL_MS,
+        })
+        qrString = charge.qrString || ''
+        paymentUrl = charge.qrUrl || charge.paymentUrl || ''
+        transactionId = charge.transactionId || ''
+        if (!qrString && !paymentUrl) {
+          await releaseReserved()
+          return NextResponse.json({ error: 'Gagal membuat pembayaran (Tokopay).' }, { status: 500 })
+        }
+      } else if (activeGateway === 'qiospay') {
+        const merchantCode = process.env.QIOSPAY_MERCHANT_CODE
+        const apiKey = process.env.QIOSPAY_API_KEY
+        const qrisStatic = process.env.QIOSPAY_QRIS_STRING
+        if (!merchantCode || !apiKey || !qrisStatic) {
+          await releaseReserved()
+          return NextResponse.json({ error: 'Server belum dikonfigurasi (Qiospay)' }, { status: 500 })
+        }
+        const preferredCode = Number(body.qiospayAdminFee)
+        const unique = await computeUniqueQiospayAmount(
+          supabase,
+          totalAmount,
+          Number.isInteger(preferredCode) ? preferredCode : undefined
+        )
+        chargedAmount = unique.amount
+        adminFee = unique.adminFee
+        qrString = buildDynamicQris(qrisStatic, chargedAmount)
+        transactionId = orderId
       } else {
-        console.error('Midtrans charge failed:', chargeData)
-        return NextResponse.json({ error: 'Gagal membuat pembayaran. Coba lagi.' }, { status: 500 })
+        // Default: Midtrans Core API QRIS direct charge
+        paymentProvider = 'midtrans'
+        const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
+        const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true'
+        const baseUrl = isProduction
+          ? 'https://api.midtrans.com/v2/charge'
+          : 'https://api.sandbox.midtrans.com/v2/charge'
+
+        const chargePayload = {
+          payment_type: 'qris',
+          transaction_details: { order_id: orderId, gross_amount: totalAmount },
+          customer_details: {
+            first_name: normalizedCustomerName,
+            email: normalizedCustomerEmail,
+            phone: normalizedCustomerPhone,
+          },
+          qris: { acquirer: 'gopay' },
+        }
+
+        const devWebhook = process.env.MIDTRANS_DEV_WEBHOOK_URL || ''
+
+        const chargeRes = await fetch(baseUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${Buffer.from(serverKey + ':').toString('base64')}`,
+            ...(devWebhook ? { 'X-Append-Notification': devWebhook } : {}),
+          },
+          body: JSON.stringify(chargePayload),
+        })
+
+        const chargeData = await chargeRes.json()
+
+        if (chargeData.status_code === '201' || chargeData.status_code === '200') {
+          transactionId = chargeData.transaction_id
+          const qrisAction = chargeData.actions?.find((a: any) => a.name === 'generate-qr-code')
+          paymentUrl = qrisAction?.url || chargeData.actions?.[0]?.url || ''
+          qrString = chargeData.qr_string || ''
+        } else {
+          console.error('Midtrans charge failed:', chargeData)
+          await releaseReserved()
+          return NextResponse.json({ error: 'Gagal membuat pembayaran. Coba lagi.' }, { status: 500 })
+        }
       }
     } catch (err: any) {
-      console.error('Midtrans error:', err)
+      console.error(`${activeGateway} charge error:`, err?.message || err)
+      await releaseReserved()
       return NextResponse.json({ error: 'Gagal menghubungi payment gateway' }, { status: 500 })
     }
 
@@ -417,18 +522,20 @@ export async function POST(
         customer_email: normalizedCustomerEmail,
         customer_phone: normalizedCustomerPhone,
         status: 'pending',
-        total_amount: totalAmount,
+        // total_amount stores the amount actually billed (Qiospay includes admin fee).
+        total_amount: chargedAmount,
         total_modal: totalModal,
         komisi,
         payment_method: 'qris',
+        payment_provider: paymentProvider,
         payment_url: paymentUrl,
-        midtrans_token: midtransToken,
         transaction_id: transactionId,
         items: orderItems,
       })
 
     if (orderError) {
       console.error('Order insert error:', orderError)
+      await releaseReserved()
       return NextResponse.json({ error: 'Gagal menyimpan order' }, { status: 500 })
     }
 
@@ -462,7 +569,11 @@ export async function POST(
       success: true,
       order_id: orderId,
       payment_url: paymentUrl,
-      total_amount: totalAmount,
+      qr_string: qrString || null,
+      total_amount: chargedAmount,
+      subtotal: Math.round(totalAmount),
+      admin_fee: adminFee,
+      provider: paymentProvider,
     })
   } catch (err: any) {
     console.error('Checkout error:', err)

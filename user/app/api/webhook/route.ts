@@ -737,12 +737,34 @@ export async function POST(request: NextRequest) {
       bodyPreview: JSON.stringify(body).slice(0, 200)
     })
 
-    const isTokopay = (body.ref_id !== undefined || body.reff_id !== undefined) && body.signature !== undefined
+    // Qiospay has no order reference or per-request signature in its callback.
+    // The callback route and status poller reconcile the payment to an order by
+    // amount, then re-post here as an INTERNAL event authenticated by WEBHOOK_SECRET.
+    const isQiospayInternal = body.provider === 'qiospay_internal'
     let transactionStatus = ''
     let paymentType = ''
     let grossAmount: any = undefined
 
-    if (isTokopay) {
+    if (isQiospayInternal) {
+      const expectedSecret = process.env.WEBHOOK_SECRET || ''
+      if (!expectedSecret || body.secret !== expectedSecret) {
+        logWarn('WEBHOOK', 'Qiospay internal secret verification failed', { orderId })
+        return NextResponse.json({ error: 'Invalid secret' }, { status: 401 })
+      }
+
+      logInfo('WEBHOOK', 'Processing Qiospay internal event', { orderId })
+
+      const qpStatus = String(body.transaction_status || '').toLowerCase()
+      if (qpStatus === 'settlement' || qpStatus === 'capture' || qpStatus === 'success') {
+        transactionStatus = 'settlement'
+      } else if (qpStatus === 'cancel' || qpStatus === 'expire' || qpStatus === 'failed') {
+        transactionStatus = 'cancel'
+      } else {
+        transactionStatus = 'pending'
+      }
+      paymentType = 'qiospay'
+      grossAmount = body.gross_amount
+    } else if ((body.ref_id !== undefined || body.reff_id !== undefined) && body.signature !== undefined) {
       logInfo('WEBHOOK', 'Processing Tokopay webhook signature')
       const merchantId = process.env.TOKOPAY_MERCHANT_ID || ''
       const secretKey = process.env.TOKOPAY_SECRET_KEY || ''

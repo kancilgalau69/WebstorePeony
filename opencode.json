@@ -4,8 +4,8 @@
     "9router": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "baseURL": "https://true-sota.com/v1",
-        "apiKey": "sk-ts-5d8098065e0229b94ed767fe510389aeb10559554941c2b730f733f5ee43d994"
+        "baseURL": "https://www.genspark.ai/api/llm_proxy/v1",
+        "apiKey": "gsk-eyJjb2dlbl9pZCI6ImViZTM3ZmFjLTVhNTgtNDU5YS04Nzc2LTYwNDk3YWY5MTcyMiIsImtleV9pZCI6ImVmN2Q2ZjU0LWE2M2YtNDc0Yi1iYzI3LTQwMWEwZTJkMzliNCIsImN0aW1lIjoxNzg3OTI0MzA5LCJjbGF1ZGVfYmlnX21vZGVsIjpudWxsLCJjbGF1ZGVfbWlkZGxlX21vZGVsIjpudWxsLCJjbGF1ZGVfc21hbGxfbW9kZWwiOm51bGx9fKpxdv3yBpJY-KBanuzoV2IbRivAGZnJ9STPv1oopeRS"
       },
       "models": {
         "claude-opus-4-8": {

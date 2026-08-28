@@ -11,6 +11,12 @@ function OrderPendingInner() {
   const qrString = searchParams.get('qrString')
   const qrUrl = searchParams.get('qrUrl')
   const transactionId = searchParams.get('transactionId')
+  const amount = searchParams.get('amount')
+  const adminFee = searchParams.get('adminFee')
+  const subtotal = searchParams.get('subtotal')
+
+  const formatPrice = (value: number) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
   const [checking, setChecking] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
@@ -292,6 +298,33 @@ function OrderPendingInner() {
               className="w-64 h-64 mx-auto border-4 border-white rounded-2xl shadow-sm"
             />
           </div>
+
+          {/* Total Payment */}
+          {amount && (
+            <div className="bg-[#FBF3F8] border-2 border-[#F0E2EB] rounded-2xl p-4 space-y-1.5">
+              {subtotal && adminFee && Number(adminFee) > 0 && (
+                <>
+                  <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                    <span>Subtotal</span>
+                    <span className="text-[#3E2D3B]">{formatPrice(Number(subtotal))}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                    <span>Biaya Admin (kode unik)</span>
+                    <span className="text-[#3E2D3B]">{formatPrice(Number(adminFee))}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between items-center pt-1 border-t border-[#F0E2EB]">
+                <span className="text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider">Total Pembayaran</span>
+                <span className="font-fredoka text-2xl text-[#CB96BA]">{formatPrice(Number(amount))}</span>
+              </div>
+              {adminFee && Number(adminFee) > 0 && (
+                <p className="text-[10px] text-[#8E7188] font-bold pt-1">
+                  ⚠️ Bayar tepat sesuai nominal di atas (termasuk kode unik) agar pembayaran terverifikasi otomatis.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Order ID Info */}
           <div className="bg-[#F7F2F6] rounded-2xl p-3 text-xs font-bold text-[#8E7188] space-y-1">

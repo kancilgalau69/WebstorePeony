@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
+import { fetchQiospayMutasi, isCreditEntry } from '@/lib/payments/qiospay'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -35,11 +36,86 @@ export async function POST(request: NextRequest) {
     // Fetch order from DB to know the provider
     const { data: orderInfo } = await supabase
       .from('orders')
-      .select('payment_provider, status')
+      .select('payment_provider, status, total_amount')
       .eq('order_id', order_id)
       .single()
 
     const provider = orderInfo?.payment_provider || 'midtrans'
+
+    if (provider === 'qiospay') {
+      // Short-circuit from DB if callback already resolved the order.
+      if (orderInfo?.status === 'completed') {
+        return NextResponse.json({
+          success: true,
+          status: 'settlement',
+          transaction_id,
+          order_id,
+          statusMessage: getStatusMessage('settlement'),
+        })
+      }
+      if (orderInfo?.status === 'cancelled' || orderInfo?.status === 'failed' || orderInfo?.status === 'expired') {
+        return NextResponse.json({
+          success: true,
+          status: 'cancel',
+          transaction_id,
+          order_id,
+          statusMessage: getStatusMessage('cancel'),
+        })
+      }
+
+      // Qiospay has no per-order status API. Poll recent mutasi and match by the
+      // unique amount we billed. If found, hand off to the webhook (parity with callback).
+      let mappedStatus = 'pending'
+      try {
+        const expectedAmount = Math.round(Number(orderInfo?.total_amount))
+        const mutasi = await fetchQiospayMutasi()
+        const paid = mutasi.some(
+          (entry) => isCreditEntry(entry) && Math.round(entry.amount) === expectedAmount
+        )
+
+        logInfo('Payment Status', 'Qiospay mutasi polled', {
+          orderId: order_id,
+          expectedAmount,
+          paid,
+          mutasiCount: mutasi.length,
+        })
+
+        if (paid) {
+          mappedStatus = 'settlement'
+          const webhookSecret = process.env.WEBHOOK_SECRET || ''
+          const webhookUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}/api/webhook`
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: 'qiospay_internal',
+              secret: webhookSecret,
+              order_id,
+              transaction_status: 'settlement',
+              gross_amount: expectedAmount,
+            }),
+          }).catch((err) => {
+            logWarn('Payment Status', 'Qiospay internal webhook trigger failed', {
+              orderId: order_id,
+              error: err?.message,
+            })
+          })
+        }
+      } catch (qpErr: any) {
+        logWarn('Payment Status', 'Qiospay mutasi poll failed (non-fatal)', {
+          orderId: order_id,
+          error: qpErr?.message,
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        status: mappedStatus,
+        transaction_id,
+        order_id,
+        statusMessage: getStatusMessage(mappedStatus),
+      })
+    }
 
     if (provider === 'tokopay') {
       // If webhook already settled/failed the order, short-circuit from DB.

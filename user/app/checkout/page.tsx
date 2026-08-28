@@ -33,6 +33,12 @@ export default function CheckoutPage() {
   } | null>(null)
   const [promoError, setPromoError] = useState('')
 
+  // Payment preview (gateway + admin fee for Qiospay), shown before generating QRIS.
+  const [paymentInfo, setPaymentInfo] = useState<{
+    gateway: string; subtotal: number; promoDiscount: number;
+    netTotal: number; adminFee: number; total: number;
+  } | null>(null)
+
   const renderCaptcha = () => {
     const hc = (window as any).hcaptcha
     if (!hc || !captchaRef.current) return
@@ -95,6 +101,40 @@ export default function CheckoutPage() {
       return () => clearTimeout(timer)
     }
   }, [items, router, isProcessingPayment])
+
+  // Fetch payment preview (gateway + admin fee) so the customer sees the exact
+  // total before the QRIS is generated. Re-runs when cart or promo changes.
+  useEffect(() => {
+    if (items.length === 0) {
+      setPaymentInfo(null)
+      return
+    }
+    let cancelled = false
+    const controller = new AbortController()
+    const fetchInfo = async () => {
+      try {
+        const res = await fetch('/api/payment-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: items.map((i) => ({ product: { id: i.product.id }, quantity: i.quantity })),
+            ...(appliedPromo ? { promoCode: appliedPromo.code } : {}),
+          }),
+          signal: controller.signal,
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) setPaymentInfo(data)
+      } catch {
+        // Non-blocking; summary falls back to client-side total.
+      }
+    }
+    fetchInfo()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [items, appliedPromo])
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -177,6 +217,8 @@ export default function CheckoutPage() {
           captchaToken,
           ...(affiliateCode ? { affiliateCode } : {}),
           ...(appliedPromo ? { promoCode: appliedPromo.code, promoDiscount: appliedPromo.discount_amount } : {}),
+          // Reuse the previewed Qiospay admin fee so the charged total matches what was shown.
+          ...(paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee ? { qiospayAdminFee: paymentInfo.adminFee } : {}),
         }),
       })
 
@@ -189,7 +231,16 @@ export default function CheckoutPage() {
 
       if (data.qrString || data.qrUrl) {
         clearCart()
-        await router.push(`/order-pending?orderId=${data.orderId}&qrString=${encodeURIComponent(data.qrString || '')}&qrUrl=${encodeURIComponent(data.qrUrl || '')}&transactionId=${encodeURIComponent(data.transactionId || '')}`)
+        const params = new URLSearchParams({
+          orderId: data.orderId || '',
+          qrString: data.qrString || '',
+          qrUrl: data.qrUrl || '',
+          transactionId: data.transactionId || '',
+        })
+        if (data.amount) params.set('amount', String(data.amount))
+        if (data.adminFee) params.set('adminFee', String(data.adminFee))
+        if (data.subtotal) params.set('subtotal', String(data.subtotal))
+        await router.push(`/order-pending?${params.toString()}`)
         return
       }
 
@@ -328,7 +379,7 @@ export default function CheckoutPage() {
                   disabled={loading || (!captchaToken && captchaReady)}
                   className="btn-card-buy w-full py-3.5 text-xs mt-6"
                 >
-                  {loading ? 'Memproses Transaksi...' : !captchaToken && captchaReady ? 'Selesaikan CAPTCHA dulu' : `Bayar Sekarang ${formatPrice(finalTotal)} ✦`}
+                  {loading ? 'Memproses Transaksi...' : !captchaToken && captchaReady ? 'Selesaikan CAPTCHA dulu' : `Bayar Sekarang ${formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)} ✦`}
                 </button>
               </form>
             </div>
@@ -389,11 +440,38 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              <div className="border-t-2 border-[#F0E2EB] pt-4">
-                <div className="flex justify-between font-fredoka text-xl">
-                  <span className="text-[#3E2D3B]">Total</span>
-                  <span className="text-[#CB96BA]">{formatPrice(finalTotal)}</span>
+              <div className="border-t-2 border-[#F0E2EB] pt-4 space-y-2">
+                {/* Subtotal */}
+                <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                  <span>Subtotal</span>
+                  <span className="text-[#3E2D3B]">{formatPrice(finalTotal)}</span>
                 </div>
+
+                {/* Qiospay admin fee (unique code that will be paid by customer) */}
+                {paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
+                  <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                    <span className="flex items-center gap-1">
+                      Biaya Admin
+                      <span className="text-[10px] text-[#B8A0B2]" title="Kode unik untuk verifikasi pembayaran otomatis">
+                        (kode unik)
+                      </span>
+                    </span>
+                    <span className="text-[#3E2D3B]">{formatPrice(paymentInfo.adminFee)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between font-fredoka text-xl pt-1 border-t border-[#F0E2EB]">
+                  <span className="text-[#3E2D3B]">Total</span>
+                  <span className="text-[#CB96BA]">
+                    {formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)}
+                  </span>
+                </div>
+
+                {paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
+                  <p className="text-[10px] font-bold text-[#8E7188] bg-[#F7F2F6] border border-[#F0E2EB] rounded-xl px-3 py-2 mt-1">
+                    ℹ️ Biaya admin {formatPrice(paymentInfo.adminFee)} adalah kode unik yang membantu sistem memverifikasi pembayaran Anda secara otomatis.
+                  </p>
+                )}
               </div>
             </div>
           </div>

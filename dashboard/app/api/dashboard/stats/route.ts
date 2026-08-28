@@ -75,14 +75,34 @@ function getErrorMessage(error: unknown) {
   return 'Unknown error'
 }
 
-async function fetchAllRows<T>(buildQuery: (from: number, to: number) => PromiseLike<RowsResult<T>>) {
+// PostgREST error code for "table not found in schema cache".
+const MISSING_TABLE_CODE = 'PGRST205'
+
+function isMissingTableError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as { code?: string }).code
+  const message = String((error as DbError).message || '')
+  return code === MISSING_TABLE_CODE || /Could not find the table/i.test(message)
+}
+
+async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<RowsResult<T>>,
+  options: { optional?: boolean } = {}
+) {
   const pageSize = 1000
   let from = 0
   let rows: T[] = []
 
   while (true) {
     const { data, error } = await buildQuery(from, from + pageSize - 1)
-    if (error) throw new Error(getErrorMessage(error))
+    if (error) {
+      // Optional tables (e.g. marketplace) may not exist in every deployment.
+      // Degrade gracefully to an empty set instead of failing the whole dashboard.
+      if (options.optional && isMissingTableError(error)) {
+        return [] as T[]
+      }
+      throw new Error(getErrorMessage(error))
+    }
 
     const pageRows = data || []
     rows = rows.concat(pageRows)
@@ -148,7 +168,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServerClient()
 
-    const [{ count: productsCount, error: productsError }, { count: itemsCount, error: itemsError }, { count: usersCount, error: usersError }, { count: resellerCount, error: resellerError }, { count: sellerCount, error: sellerError }] = await Promise.all([
+    const [{ count: productsCount, error: productsError }, { count: itemsCount, error: itemsError }, { count: usersCount, error: usersError }, { count: resellerCount, error: resellerError }, { count: sellerCountRaw, error: sellerError }] = await Promise.all([
       supabase.from('products').select('*', { count: 'exact', head: true }),
       supabase.from('product_items').select('*', { count: 'exact', head: true }),
       supabase.from('users').select('*', { count: 'exact', head: true }),
@@ -156,7 +176,9 @@ export async function GET(request: NextRequest) {
       supabase.from('sellers').select('id', { count: 'exact', head: true }),
     ])
 
-    const countError = productsError || itemsError || usersError || resellerError || sellerError
+    // `sellers` is an optional (marketplace) table; tolerate its absence.
+    const sellerCount = isMissingTableError(sellerError) ? 0 : sellerCountRaw
+    const countError = productsError || itemsError || usersError || resellerError || (isMissingTableError(sellerError) ? null : sellerError)
     if (countError) throw new Error(getErrorMessage(countError))
 
     const [orders, resellerOrders, marketOrders] = await Promise.all([
@@ -171,7 +193,7 @@ export async function GET(request: NextRequest) {
       fetchAllRows<MarketOrderRow>((from, to) => supabase
         .from('market_orders')
         .select('order_id, status, total_amount, order_source, created_at')
-        .range(from, to) as unknown as PromiseLike<RowsResult<MarketOrderRow>>),
+        .range(from, to) as unknown as PromiseLike<RowsResult<MarketOrderRow>>, { optional: true }),
     ])
 
     const paidOrders = orders.filter(isPaidOrder)

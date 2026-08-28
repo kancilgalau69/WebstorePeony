@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { resolveBotPrice, resolveWebPrice } from '@/lib/pricing'
 import { logError, logInfo, logWarn, summarizeOrderForLog } from '@/lib/logging/terminal-log'
 import { getSessionUser } from '@/lib/auth'
+import { buildDynamicQris, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
 
 const midtransClient = require('midtrans-client')
 
@@ -407,6 +408,67 @@ async function releaseReservedItemsForOrder(orderId: string) {
       error: err?.message || err,
     })
   }
+}
+
+/**
+ * Qiospay callbacks/mutasi carry no order reference, only the paid amount.
+ * To reconcile a payment to an order we make each pending Qiospay order's total
+ * unique by adding a small "admin fee" (unique code, 1..QIOSPAY_MAX_UNIQUE_CODE
+ * rupiah) on top of the real total. We pick a code not currently in use by another
+ * pending Qiospay order.
+ *
+ * `preferredCode` lets the checkout reuse the exact code previewed to the customer,
+ * so the displayed admin fee matches the amount actually charged. If that code is
+ * already taken (race), we fall back to a fresh unique code.
+ *
+ * Returns both the final amount and the admin fee (the unique code) so callers can
+ * display the breakdown.
+ */
+async function computeUniqueQiospayAmount(
+  baseAmount: number,
+  preferredCode?: number
+): Promise<{ amount: number; adminFee: number }> {
+  const base = Math.round(baseAmount)
+  const MAX = QIOSPAY_MAX_UNIQUE_CODE
+
+  try {
+    const { data: pendingOrders } = await supabase
+      .from('orders')
+      .select('total_amount')
+      .eq('payment_provider', 'qiospay')
+      .eq('status', 'pending')
+      .gte('total_amount', base + 1)
+      .lte('total_amount', base + MAX)
+
+    const taken = new Set<number>((pendingOrders || []).map((o: any) => Math.round(Number(o.total_amount))))
+
+    // 1. Honor the previewed code if it's valid and still free.
+    if (preferredCode && preferredCode >= 1 && preferredCode <= MAX && !taken.has(base + preferredCode)) {
+      return { amount: base + preferredCode, adminFee: preferredCode }
+    }
+
+    // 2. Try random unique codes to reduce collision under concurrency.
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const code = Math.floor(Math.random() * MAX) + 1
+      if (!taken.has(base + code)) {
+        return { amount: base + code, adminFee: code }
+      }
+    }
+
+    // 3. Fallback: linear scan for any free slot.
+    for (let code = 1; code <= MAX; code++) {
+      if (!taken.has(base + code)) {
+        return { amount: base + code, adminFee: code }
+      }
+    }
+  } catch (err: any) {
+    logWarn('CHECKOUT', 'Failed computing unique Qiospay amount, using +1 fallback', {
+      error: err?.message || String(err),
+    })
+  }
+
+  // Last resort: add 1 (still better than a non-unique amount).
+  return { amount: base + 1, adminFee: 1 }
 }
 
 export async function POST(request: NextRequest) {
@@ -861,6 +923,141 @@ export async function POST(request: NextRequest) {
         qrString: qrString,
         qrUrl: qrCodeUrl,
         transactionId: transactionInfo.trx_id
+      })
+    }
+
+    if (activeGateway === 'qiospay') {
+      const merchantCode = process.env.QIOSPAY_MERCHANT_CODE
+      const apiKey = process.env.QIOSPAY_API_KEY
+      const qrisString = process.env.QIOSPAY_QRIS_STRING
+
+      if (!merchantCode || !apiKey || !qrisString) {
+        logError('CHECKOUT', 'Qiospay credentials not configured')
+        return NextResponse.json(
+          { error: 'Server belum dikonfigurasi (Qiospay)' },
+          { status: 500 }
+        )
+      }
+
+      // Qiospay callbacks carry no order reference, so make the nominal unique
+      // and reconcile by amount later (callback + mutasi polling).
+      // Reuse the admin fee previewed to the customer when possible for consistency.
+      const preferredAdminFee = Number(body.qiospayAdminFee)
+      const { amount: uniqueAmount, adminFee } = await computeUniqueQiospayAmount(
+        totalAmount,
+        Number.isInteger(preferredAdminFee) ? preferredAdminFee : undefined
+      )
+
+      let dynamicQris: string
+      try {
+        dynamicQris = buildDynamicQris(qrisString, uniqueAmount)
+      } catch (err: any) {
+        logError('CHECKOUT', 'Failed building Qiospay dynamic QRIS', {
+          orderId,
+          error: err?.message || String(err),
+        })
+        return NextResponse.json(
+          { error: 'Gagal membuat QRIS pembayaran' },
+          { status: 500 }
+        )
+      }
+
+      logInfo('CHECKOUT', 'Qiospay dynamic QRIS created', {
+        orderId,
+        baseAmount: totalAmount,
+        uniqueAmount,
+      })
+
+      // Reserve items
+      const reservationResults: Array<any> = []
+      for (const item of serverItems) {
+        try {
+          const { data: reserveResult, error: reserveError } = await supabase.rpc('reserve_items_for_order', {
+            p_order_id: orderId,
+            p_product_code: item.product.kode,
+            p_quantity: item.quantity,
+          })
+          if (reserveError) throw reserveError
+          reservationResults.push({ success: true })
+        } catch (err: any) {
+          logError('CHECKOUT', 'Reserve failed', { orderId, error: err.message })
+          reservationResults.push({ success: false })
+        }
+      }
+
+      if (reservationResults.some((r) => !r.success)) {
+        await releaseReservedItemsForOrder(orderId)
+        return NextResponse.json({ error: 'Gagal mereservasi produk, silakan coba lagi' }, { status: 400 })
+      }
+
+      const dbOrderItems = serverItems.map((item) => ({
+        product_id: item.product.id,
+        product_code: item.product.kode,
+        product_name: item.product.nama,
+        quantity: item.quantity,
+        price: item.product.price,
+      }))
+
+      const { error: insertError } = await supabase
+        .from('orders')
+        .insert({
+          order_id: orderId,
+          user_web_id: sessionUser ? sessionUser.userId : null,
+          customer_name: normalizedCustomerName,
+          customer_email: normalizedCustomerEmail,
+          customer_phone: normalizedCustomerPhone,
+          status: 'pending',
+          // total_amount stores the UNIQUE amount the customer must pay (base + unique code).
+          total_amount: uniqueAmount,
+          payment_method: 'qris',
+          payment_provider: 'qiospay',
+          payment_url: null,
+          items: dbOrderItems,
+          promo_code: rawPromoCodeForPreCharge || null,
+          promo_discount: preChargePromoDiscount,
+          affiliate_code: normalizedAffiliateCode || null,
+          user_ref: sessionUser ? `web:${sessionUser.userId}` : null,
+          expired_at: new Date(Date.now() + 15 * 60000).toISOString(),
+        })
+        .select()
+        .single()
+
+      if (insertError) {
+        logError('CHECKOUT', 'Gagal membuat order', {
+          orderId,
+          code: insertError.code,
+          message: insertError.message,
+        })
+        await releaseReservedItemsForOrder(orderId)
+        return NextResponse.json({ error: 'Gagal membuat pesanan (Database)' }, { status: 500 })
+      }
+
+      await sendNewOrderAdminNotification({
+        source: 'website',
+        orderId,
+        customerName: normalizedCustomerName,
+        customerEmail: normalizedCustomerEmail,
+        customerPhone: normalizedCustomerPhone,
+        totalAmount: uniqueAmount,
+        items: dbOrderItems,
+      })
+
+      logInfo('CHECKOUT', 'Qiospay order successfully created', {
+        orderId,
+        itemsCount: serverItems.length,
+        uniqueAmount,
+      })
+
+      return NextResponse.json({
+        success: true,
+        orderId: orderId,
+        snapToken: '', // Not used for Qiospay
+        redirectUrl: `/payment/${orderId}`,
+        qrString: dynamicQris,
+        amount: uniqueAmount,
+        subtotal: Math.round(totalAmount),
+        adminFee,
+        transactionId: orderId,
       })
     }
 

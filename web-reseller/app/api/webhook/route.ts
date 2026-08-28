@@ -3,51 +3,76 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { sendResellerOrderEmail } from '@/lib/email'
+import { verifyTokopaySignature, mapTokopayStatus } from '@/lib/payments/tokopay'
 import crypto from 'crypto'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const {
-      order_id,
-      status_code,
-      gross_amount,
-      signature_key,
-      transaction_status,
-      fraud_status,
-      transaction_id,
-    } = body
 
-    // Verify Midtrans signature
-    const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
-    const expectedSignature = crypto
-      .createHash('sha512')
-      .update(`${order_id}${status_code}${gross_amount}${serverKey}`)
-      .digest('hex')
+    // order_id: Midtrans uses order_id; Tokopay callback uses reff_id.
+    const order_id: string = body.order_id || body.reff_id || body.ref_id
+    const transaction_id: string | undefined = body.transaction_id || body?.data?.trx_id
 
-    if (signature_key !== expectedSignature) {
-      console.error('Invalid webhook signature')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
+    // Detect provider:
+    //  - Qiospay internal event (from callback route / poller) authenticated by WEBHOOK_SECRET
+    //  - Tokopay callback (has reff_id + signature)
+    //  - Midtrans notification (default)
+    const isQiospayInternal = body.provider === 'qiospay_internal'
+    const isTokopay = !isQiospayInternal && (body.reff_id !== undefined || body.ref_id !== undefined) && body.signature !== undefined
+
+    let normalizedStatus: 'settlement' | 'cancel' | 'pending' = 'pending'
+
+    if (isQiospayInternal) {
+      const expectedSecret = process.env.WEBHOOK_SECRET || ''
+      if (!expectedSecret || body.secret !== expectedSecret) {
+        console.error('Qiospay internal secret verification failed')
+        return NextResponse.json({ error: 'Invalid secret' }, { status: 401 })
+      }
+      const s = String(body.transaction_status || '').toLowerCase()
+      normalizedStatus = s === 'settlement' || s === 'capture' || s === 'success'
+        ? 'settlement'
+        : (s === 'cancel' || s === 'expire' || s === 'failed' ? 'cancel' : 'pending')
+    } else if (isTokopay) {
+      const reffId = body.reff_id || body.ref_id || order_id
+      if (!verifyTokopaySignature(reffId, body.signature)) {
+        console.error('Invalid Tokopay webhook signature')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
+      }
+      normalizedStatus = mapTokopayStatus(body.status)
+    } else {
+      // Midtrans: verify SHA512(order_id + status_code + gross_amount + serverKey)
+      const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
+      const expectedSignature = crypto
+        .createHash('sha512')
+        .update(`${order_id}${body.status_code}${body.gross_amount}${serverKey}`)
+        .digest('hex')
+
+      if (body.signature_key !== expectedSignature) {
+        console.error('Invalid webhook signature')
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
+      }
+
+      const ts = body.transaction_status
+      const fraud = body.fraud_status
+      if (ts === 'capture' || ts === 'settlement') {
+        normalizedStatus = (fraud === 'accept' || !fraud) ? 'settlement' : 'pending'
+      } else if (ts === 'cancel' || ts === 'deny' || ts === 'expire') {
+        normalizedStatus = 'cancel'
+      }
     }
 
     // Only process reseller orders (RS- prefix)
     if (!order_id?.startsWith('RS-')) {
-      return NextResponse.json({ message: 'Not a reseller order, skipped' })
+      return NextResponse.json({ status: true, message: 'Not a reseller order, skipped' })
     }
 
     const supabase = getSupabaseAdmin()
 
-    // Determine status
+    // Map normalized status to DB status
     let newStatus = 'pending'
-    if (transaction_status === 'capture' || transaction_status === 'settlement') {
-      if (fraud_status === 'accept' || !fraud_status) {
-        newStatus = 'completed'
-      }
-    } else if (transaction_status === 'cancel' || transaction_status === 'deny') {
-      newStatus = 'cancelled'
-    } else if (transaction_status === 'expire') {
-      newStatus = 'expired'
-    }
+    if (normalizedStatus === 'settlement') newStatus = 'completed'
+    else if (normalizedStatus === 'cancel') newStatus = 'cancelled'
 
     // Get current order
     const { data: order } = await supabase
@@ -63,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Don't process if already completed
     if (order.status === 'completed') {
-      return NextResponse.json({ message: 'Order already completed' })
+      return NextResponse.json({ status: true, message: 'Order already completed' })
     }
 
     // Update order status
@@ -254,7 +279,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, status: newStatus })
+    // `status: true` acknowledges Tokopay callbacks (stops their retries); harmless for Midtrans.
+    return NextResponse.json({ status: true, success: true, order_status: newStatus })
   } catch (err: any) {
     console.error('Webhook error:', err)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })

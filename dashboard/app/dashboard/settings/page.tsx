@@ -276,6 +276,7 @@ export default function SettingsPage() {
               >
                 <option value="midtrans">Midtrans</option>
                 <option value="tokopay">Tokopay</option>
+                <option value="qiospay">Qiospay</option>
               </select>
             </div>
           </div>
