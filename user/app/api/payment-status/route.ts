@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
 import { fetchQiospayMutasi, isCreditEntry } from '@/lib/payments/qiospay'
+import { settleQiospayOrder } from '@/lib/orders/settle-qiospay'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -81,24 +82,16 @@ export async function POST(request: NextRequest) {
         })
 
         if (paid) {
-          mappedStatus = 'settlement'
-          const webhookSecret = process.env.WEBHOOK_SECRET || ''
-          const webhookUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}/api/webhook`
-          fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provider: 'qiospay_internal',
-              secret: webhookSecret,
-              order_id,
-              transaction_status: 'settlement',
-              gross_amount: expectedAmount,
-            }),
-          }).catch((err) => {
-            logWarn('Payment Status', 'Qiospay internal webhook trigger failed', {
-              orderId: order_id,
-              error: err?.message,
-            })
+          // Finalize DIRECTLY (in-process, awaited) instead of a fire-and-forget
+          // self-HTTP call. On Railway/serverless, fire-and-forget fetches are often
+          // killed before completing, leaving the order stuck "pending". Doing the
+          // work inline guarantees the account is ready before we report settlement.
+          const result = await settleQiospayOrder(order_id, expectedAmount)
+          mappedStatus = result.completed ? 'settlement' : 'pending'
+          logInfo('Payment Status', 'Qiospay settle result', {
+            orderId: order_id,
+            completed: result.completed,
+            itemsReady: result.itemsReady,
           })
         }
       } catch (qpErr: any) {

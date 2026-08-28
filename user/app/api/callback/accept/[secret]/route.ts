@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
+import { settleQiospayOrder } from '@/lib/orders/settle-qiospay'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -71,7 +72,7 @@ export async function POST(
       })
     }
 
-    const matched = await reconcileQiospayPaymentByAmount(amount, request)
+    const matched = await reconcileQiospayPaymentByAmount(amount)
 
     return NextResponse.json({
       status: 'accept',
@@ -95,10 +96,7 @@ export async function POST(
  * then trigger the main webhook as an internal settlement event.
  * Returns true if a matching order was found and handed off.
  */
-async function reconcileQiospayPaymentByAmount(
-  amount: number,
-  request: NextRequest
-): Promise<boolean> {
+async function reconcileQiospayPaymentByAmount(amount: number): Promise<boolean> {
   const { data: orders, error } = await supabase
     .from('orders')
     .select('order_id, total_amount, status, created_at')
@@ -127,32 +125,18 @@ async function reconcileQiospayPaymentByAmount(
     amount,
   })
 
-  const webhookSecret = process.env.WEBHOOK_SECRET || ''
-  const webhookUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}/api/webhook`
-
-  const internalPayload = {
-    provider: 'qiospay_internal',
-    secret: webhookSecret,
-    order_id: order.order_id,
-    transaction_status: 'settlement',
-    gross_amount: amount,
-  }
-
+  // Settle in-process (awaited) — reliable on Railway/serverless where a
+  // fire-and-forget self-HTTP call to /api/webhook can be dropped.
   try {
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(internalPayload),
-    })
-    const text = await res.text().catch(() => '')
-    logInfo('QIOSPAY CALLBACK', 'Internal webhook triggered', {
+    const result = await settleQiospayOrder(order.order_id, amount)
+    logInfo('QIOSPAY CALLBACK', 'Order settled', {
       orderId: order.order_id,
-      status: res.status,
-      body: text.slice(0, 120),
+      completed: result.completed,
+      itemsReady: result.itemsReady,
     })
-    return res.ok
+    return result.completed
   } catch (err: any) {
-    logError('QIOSPAY CALLBACK', 'Failed triggering internal webhook', {
+    logError('QIOSPAY CALLBACK', 'Settle failed', {
       orderId: order.order_id,
       error: err?.message || String(err),
     })
