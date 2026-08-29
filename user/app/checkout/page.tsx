@@ -105,12 +105,8 @@ export default function CheckoutPage() {
     return () => { attempts = 999 }
   }, [])
 
-  // Require login to checkout. Redirect guests to register (with return path).
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/register?redirect=/checkout')
-    }
-  }, [authLoading, user, router])
+  // Guests are shown a "must have an account" info screen (rendered below);
+  // they click Daftar/Masuk themselves — we do NOT auto-redirect.
 
   useEffect(() => {
     if (items.length === 0 && !isProcessingPayment) {
@@ -316,12 +312,20 @@ export default function CheckoutPage() {
     }
   }
 
-  if (items.length === 0 && !isProcessingPayment) {
-    return null
+  // While auth is still resolving, show a spinner so we never flash the form
+  // (or the guest screen) before we know if the user is logged in.
+  if (authLoading) {
+    return (
+      <div className="py-20 text-center text-[#9E6B72]">
+        <div className="text-4xl animate-bounce mb-2 text-[#DB8291]"><i className="fa-solid fa-store"></i></div>
+        <p className="font-fredoka text-lg text-[#720002]">Memuat Checkout...</p>
+      </div>
+    )
   }
 
-  // Guests must register/login before checkout.
-  if (!authLoading && !user) {
+  // Guests must register/login before checkout (shown before the empty-cart guard
+  // so a logged-out user always sees this, not a redirect).
+  if (!user) {
     return (
       <div className="max-w-md mx-auto py-16 text-center animate-fadeIn">
         <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-4">
@@ -343,6 +347,11 @@ export default function CheckoutPage() {
         </div>
       </div>
     )
+  }
+
+  // Logged-in but empty cart -> nothing to checkout.
+  if (items.length === 0 && !isProcessingPayment) {
+    return null
   }
 
   return (

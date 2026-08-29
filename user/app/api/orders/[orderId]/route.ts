@@ -6,6 +6,7 @@ import {
   sendOrderDeliveryEmailWithRetry,
 } from '@/lib/email/smtp-delivery'
 import { logError, logInfo, logWarn, summarizeOrderForLog } from '@/lib/logging/terminal-log'
+import { getSessionUser } from '@/lib/auth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -340,6 +341,15 @@ export async function GET(
       )
     }
 
+    // ── AUTH: must be logged in ──────────────────────────────────────
+    const sessionUser = await getSessionUser(request)
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: 'Anda harus login untuk melihat pesanan ini.', requireAuth: true },
+        { status: 401 }
+      )
+    }
+
     logInfo('Order Details', 'Fetch order from database', { orderId })
 
     // Get order from database
@@ -354,9 +364,21 @@ export async function GET(
         orderId,
         error: dbError?.message,
       })
-      
-      // Fallback: Get from Midtrans if not in database
-      return await getFromMidtrans(orderId)
+      // Do NOT leak other gateways/orders to unauthorized lookups.
+      return NextResponse.json({ error: 'Pesanan tidak ditemukan.' }, { status: 404 })
+    }
+
+    // ── OWNERSHIP: order must belong to the logged-in user ───────────
+    if (String(orderData.user_web_id || '') !== String(sessionUser.userId)) {
+      logWarn('Order Details', 'Forbidden order access attempt', {
+        orderId,
+        by: sessionUser.userId,
+        owner: orderData.user_web_id,
+      })
+      return NextResponse.json(
+        { error: 'Anda tidak memiliki akses ke pesanan ini.' },
+        { status: 403 }
+      )
     }
 
     logInfo('Order Details', 'Order row loaded', {

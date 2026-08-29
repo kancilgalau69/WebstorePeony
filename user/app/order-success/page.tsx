@@ -65,6 +65,17 @@ function OrderSuccessInner() {
       const data = await response.json()
 
       if (!response.ok) {
+        // Not logged in -> go to login. Forbidden/not found -> friendly message.
+        if (response.status === 401 || data.requireAuth) {
+          router.push(`/login?redirect=/order-success?orderId=${orderId}`)
+          return
+        }
+        if (response.status === 403 || response.status === 404) {
+          setLoading(false)
+          setError(data.error || 'Anda tidak memiliki akses ke pesanan ini.')
+          setOrderDetails(null)
+          return
+        }
         throw new Error(data.error || 'Failed to fetch order details')
       }
 
@@ -287,6 +298,25 @@ function OrderSuccessInner() {
       <div className="py-12 text-center text-[#9E6B72]">
         <div className="text-4xl animate-bounce mb-2">🌸</div>
         <p className="font-fredoka text-lg">Memuat Rincian Pesanan...</p>
+      </div>
+    )
+  }
+
+  // Access denied / not found (403/404 from the API)
+  if (error && !orderDetails) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center animate-fadeIn">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-[#FBEEF1] border-2 border-[#F4D6DC] flex items-center justify-center text-3xl text-[#DB8291]">
+            <i className="fa-solid fa-lock"></i>
+          </div>
+          <h1 className="font-fredoka text-2xl text-[#720002]">Akses Ditolak</h1>
+          <p className="text-xs text-[#9E6B72] font-bold">{error}</p>
+          <div className="flex flex-col gap-2 pt-2">
+            <Link href="/orders" className="btn-card-buy w-full py-3 text-xs">Lihat Pesanan Saya</Link>
+            <Link href="/" className="block text-center text-xs font-extrabold text-[#DB8291] pt-1 hover:underline">← Kembali ke Shop</Link>
+          </div>
+        </div>
       </div>
     )
   }

@@ -177,7 +177,7 @@ export default function AffiliatePage() {
 
   if (!data.enabled) {
     return (
-      <div className="max-w-md mx-auto py-12 animate-fadeIn text-center">
+      <div className="max-w-md mx-auto px-4 py-12 animate-fadeIn text-center">
         <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-4">
           <div className="text-5xl text-[#DB8291] mb-2">🌸</div>
           <h1 className="font-fredoka text-2xl text-[#720002]">Program Affiliate Belum Aktif</h1>
@@ -193,7 +193,7 @@ export default function AffiliatePage() {
   const { affiliate, settings, earnings, withdrawals } = data
 
   return (
-    <div className="max-w-4xl mx-auto py-4 space-y-6 animate-fadeIn">
+    <div className="max-w-[1160px] mx-auto px-4 py-4 space-y-6 animate-fadeIn">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-xs font-bold text-[#9E6B72]">
         <Link href="/profile" className="hover:text-[#DB8291]">

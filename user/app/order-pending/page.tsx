@@ -3,10 +3,12 @@ import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useAuth } from '@/components/AuthProvider'
 
 function OrderPendingInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const orderId = searchParams.get('orderId')
   const qrString = searchParams.get('qrString')
   const qrUrl = searchParams.get('qrUrl')
@@ -14,6 +16,9 @@ function OrderPendingInner() {
   const amount = searchParams.get('amount')
   const adminFee = searchParams.get('adminFee')
   const subtotal = searchParams.get('subtotal')
+
+  // 'checking' until we confirm the logged-in user owns this order.
+  const [access, setAccess] = useState<'checking' | 'ok' | 'denied'>('checking')
 
   const formatPrice = (value: number) =>
     new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value)
@@ -26,6 +31,31 @@ function OrderPendingInner() {
   // or overlapping status requests.
   const redirectingRef = useRef(false)
   const pollInFlightRef = useRef(false)
+
+  // Auth + ownership gate: must be logged in and own this order.
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) {
+      router.push(`/login?redirect=/order-pending?orderId=${orderId || ''}`)
+      return
+    }
+    if (!orderId) { setAccess('denied'); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/orders/${orderId}`, { cache: 'no-store' })
+        if (cancelled) return
+        if (res.status === 401) {
+          router.push(`/login?redirect=/order-pending?orderId=${orderId}`)
+          return
+        }
+        setAccess(res.ok ? 'ok' : 'denied')
+      } catch {
+        if (!cancelled) setAccess('denied')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [authLoading, user, orderId, router])
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -146,6 +176,8 @@ function OrderPendingInner() {
       }
     }
 
+    if (access !== 'ok') return
+
     checkStatus()
     const interval = setInterval(() => {
       // Stop polling once the QR has expired; send the buyer to the failed page.
@@ -158,7 +190,7 @@ function OrderPendingInner() {
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [orderId, transactionId, router, expiryTs])
+  }, [orderId, transactionId, router, expiryTs, access])
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -266,6 +298,35 @@ function OrderPendingInner() {
     } finally {
       setChecking(false)
     }
+  }
+
+  // Verifying auth/ownership
+  if (authLoading || access === 'checking') {
+    return (
+      <div className="py-20 text-center text-[#9E6B72]">
+        <div className="text-4xl animate-bounce mb-2 text-[#DB8291]"><i className="fa-solid fa-store"></i></div>
+        <p className="font-fredoka text-lg text-[#720002]">Memverifikasi Pesanan...</p>
+      </div>
+    )
+  }
+
+  // Not the owner / order not found
+  if (access === 'denied') {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center animate-fadeIn">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-[#FBEEF1] border-2 border-[#F4D6DC] flex items-center justify-center text-3xl text-[#DB8291]">
+            <i className="fa-solid fa-lock"></i>
+          </div>
+          <h1 className="font-fredoka text-2xl text-[#720002]">Akses Ditolak</h1>
+          <p className="text-xs text-[#9E6B72] font-bold">Anda tidak memiliki akses ke pesanan ini atau pesanan tidak ditemukan.</p>
+          <div className="flex flex-col gap-2 pt-2">
+            <Link href="/orders" className="btn-card-buy w-full py-3 text-xs">Lihat Pesanan Saya</Link>
+            <Link href="/" className="block text-center text-xs font-extrabold text-[#DB8291] pt-1 hover:underline">← Kembali ke Shop</Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -5,7 +5,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "options": {
         "baseURL": "https://www.genspark.ai/api/llm_proxy/v1",
-        "apiKey": "gsk-eyJjb2dlbl9pZCI6IjM3OWJlNDVlLWQwNTMtNDljZC1iOGNiLTYzNzc3MzU2YjY3MSIsImtleV9pZCI6ImQ3ODY3NWMwLWQyOTAtNDc3Mi1iMDM5LWM1NDUyMTM4OGQ2ZCIsImN0aW1lIjoxNzg4MDEwNzM4LCJjbGF1ZGVfYmlnX21vZGVsIjpudWxsLCJjbGF1ZGVfbWlkZGxlX21vZGVsIjpudWxsLCJjbGF1ZGVfc21hbGxfbW9kZWwiOm51bGx9fBYvwfSD4yyaVf57Y4vfD3m3beRFkxKNQ78L1CvswKdY"
+        "apiKey": "gsk-eyJjb2dlbl9pZCI6ImZmYmNhYTY1LTU5YWUtNGEzYi1hYTRkLTYwNWU4NTljOWI0MiIsImtleV9pZCI6IjE1MzBhODQ4LTk2MTQtNDVmZS05MjNkLWUyMTE3ODhhOWE3ZCIsImN0aW1lIjoxNzg4MDIwMTYzLCJjbGF1ZGVfYmlnX21vZGVsIjpudWxsLCJjbGF1ZGVfbWlkZGxlX21vZGVsIjpudWxsLCJjbGF1ZGVfc21hbGxfbW9kZWwiOm51bGx9fJlzQ9pDQ6aPwFKwnYYG9FjjIY5V5K6aZ6I8EAwXB7KR"
       },
       "models": {
         "claude-opus-4-8": {

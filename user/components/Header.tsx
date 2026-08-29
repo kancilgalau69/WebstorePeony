@@ -105,6 +105,14 @@ export default function Header() {
             Tentang
           </a>
           <Link
+            href="/favorites"
+            className={`text-sm font-bold transition-all px-3 py-1.5 rounded-full ${
+              pathname === '/favorites' ? 'text-[#720002] bg-[#FBEEF1]' : 'text-[#9E6B72] hover:text-[#DB8291] hover:bg-[#FBEEF1]'
+            }`}
+          >
+            Favorit
+          </Link>
+          <Link
             href="/orders"
             className={`text-sm font-bold transition-all px-3 py-1.5 rounded-full ${
               pathname === '/orders' ? 'text-[#720002] bg-[#FBEEF1]' : 'text-[#9E6B72] hover:text-[#DB8291] hover:bg-[#FBEEF1]'

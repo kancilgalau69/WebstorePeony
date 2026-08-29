@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useState, useMemo } from 'react'
 import { Database } from '@/lib/database.types'
 import { useCart } from './CartProvider'
+import { useFavorites } from './FavoritesProvider'
 import { resolveWebPrice } from '@/lib/pricing'
 import { formatCategoryName } from '@/lib/categories'
 
@@ -18,7 +19,15 @@ interface ProductCardProps {
 
 export default function ProductCard({ product, variant = 'default', showBadge = null }: ProductCardProps) {
   const { addToCart } = useCart()
+  const { isFavorite, toggleFavorite } = useFavorites()
   const [imgError, setImgError] = useState(false)
+  const fav = isFavorite(product.id)
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    toggleFavorite(product.id)
+  }
   const Swal = typeof window !== 'undefined' ? (window as any).Swal : null
 
   const price = resolveWebPrice(product as any)
@@ -185,6 +194,15 @@ export default function ProductCard({ product, variant = 'default', showBadge = 
               <span className="px-3 py-1.5 rounded-full bg-[#720002] text-white text-xs font-extrabold">Stok Habis</span>
             </div>
           )}
+
+          {/* Favorite toggle */}
+          <button
+            onClick={handleToggleFavorite}
+            aria-label={fav ? 'Hapus dari favorit' : 'Tambah ke favorit'}
+            className="absolute bottom-2.5 right-2.5 z-20 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm border border-[#F4D6DC] shadow-sm flex items-center justify-center hover:scale-110 transition-transform"
+          >
+            <i className={`${fav ? 'fa-solid text-[#DB8291]' : 'fa-regular text-[#9E6B72]'} fa-heart text-sm`}></i>
+          </button>
         </div>
 
         {/* Info */}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
 import { AuthProvider } from "@/components/AuthProvider";
+import { FavoritesProvider } from "@/components/FavoritesProvider";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import AnnouncementPopup from "@/components/AnnouncementPopup";
@@ -63,6 +64,7 @@ export default function RootLayout({
       <body className="antialiased font-sans min-h-screen text-[#720002]">
         <AuthProvider>
           <CartProvider>
+            <FavoritesProvider>
             <Header />
             
             <main className="min-h-screen w-full pb-24 md:pb-12 pt-24 md:pt-32">
@@ -128,6 +130,7 @@ export default function RootLayout({
             
             <BottomNav />
             <AnnouncementPopup />
+            </FavoritesProvider>
           </CartProvider>
         </AuthProvider>
       </body>

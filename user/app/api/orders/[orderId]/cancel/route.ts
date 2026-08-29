@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { getSessionUser } from '@/lib/auth'
 import { logError, logInfo, logSuccess, logWarn } from '@/lib/logging/terminal-log'
 
 function formatCurrency(amount: number): string {
@@ -104,6 +105,12 @@ export async function POST(
   try {
     const orderId = params.orderId
 
+    // AUTH: must be logged in
+    const sessionUser = await getSessionUser(request)
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Anda harus login.', requireAuth: true }, { status: 401 })
+    }
+
     logInfo('CANCEL', 'Processing cancellation request', { orderId })
 
     // Get order details using order_id (string), not id (UUID)
@@ -121,6 +128,15 @@ export async function POST(
       return NextResponse.json(
         { error: 'Order tidak ditemukan' },
         { status: 404 }
+      )
+    }
+
+    // OWNERSHIP: order must belong to the logged-in user
+    if (String((order as any).user_web_id || '') !== String(sessionUser.userId)) {
+      logWarn('CANCEL', 'Forbidden cancel attempt', { orderId, by: sessionUser.userId })
+      return NextResponse.json(
+        { error: 'Anda tidak memiliki akses ke pesanan ini.' },
+        { status: 403 }
       )
     }
 

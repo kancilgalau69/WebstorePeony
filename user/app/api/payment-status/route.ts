@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
 import { fetchQiospayMutasi, isCreditEntry } from '@/lib/payments/qiospay'
 import { settleQiospayOrder } from '@/lib/orders/settle-qiospay'
+import { getSessionUser } from '@/lib/auth'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -28,18 +29,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── AUTH: must be logged in ──────────────────────────────────────
+    const sessionUser = await getSessionUser(request)
+    if (!sessionUser) {
+      return NextResponse.json({ error: 'Unauthorized', requireAuth: true }, { status: 401 })
+    }
+
     const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
     const isProduction = process.env.MIDTRANS_IS_PRODUCTION === 'true'
     const apiBase = isProduction
       ? 'https://api.midtrans.com'
       : 'https://api.sandbox.midtrans.com'
 
-    // Fetch order from DB to know the provider
+    // Fetch order from DB to know the provider + verify ownership
     const { data: orderInfo } = await supabase
       .from('orders')
-      .select('payment_provider, status, total_amount')
+      .select('payment_provider, status, total_amount, user_web_id')
       .eq('order_id', order_id)
       .single()
+
+    if (!orderInfo) {
+      return NextResponse.json({ error: 'Pesanan tidak ditemukan.' }, { status: 404 })
+    }
+    if (String(orderInfo.user_web_id || '') !== String(sessionUser.userId)) {
+      return NextResponse.json({ error: 'Anda tidak memiliki akses ke pesanan ini.' }, { status: 403 })
+    }
 
     const provider = orderInfo?.payment_provider || 'midtrans'
 
