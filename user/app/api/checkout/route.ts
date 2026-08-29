@@ -746,6 +746,127 @@ export async function POST(request: NextRequest) {
 
     logInfo('CHECKOUT', `Active payment gateway: ${activeGateway}`)
 
+    // ── PAY WITH WALLET BALANCE ──────────────────────────────────────
+    // Debits the user's saldo atomically and completes the order instantly.
+    if (String(body.payMethod || '') === 'balance') {
+      // 1. Reserve items first (guards stock + phantom-stock).
+      const reserveResults: Array<{ ok: boolean }> = []
+      for (const item of serverItems) {
+        try {
+          const { data: r, error: e } = await supabase.rpc('reserve_items_for_order', {
+            p_order_id: orderId,
+            p_product_code: item.product.kode,
+            p_quantity: item.quantity,
+          })
+          if (e) throw e
+          if (!r || !r.ok) throw new Error(r?.msg || 'reserve_failed')
+          reserveResults.push({ ok: true })
+        } catch (err: any) {
+          logError('CHECKOUT', 'Balance reserve failed', { orderId, code: item.product.kode, error: err.message })
+          reserveResults.push({ ok: false })
+        }
+      }
+      if (reserveResults.some((r) => !r.ok)) {
+        await releaseReservedItemsForOrder(orderId)
+        return NextResponse.json({ error: 'Stok produk tidak tersedia. Silakan hubungi admin.' }, { status: 400 })
+      }
+
+      // 2. Debit wallet atomically (fails if insufficient).
+      const { data: debit, error: debitErr } = await supabase.rpc('wallet_debit_user', {
+        p_user_id: sessionUser.userId,
+        p_amount: Math.round(totalAmount),
+        p_description: `Pembelian ${orderId}`,
+        p_ref_id: orderId,
+      })
+      if (debitErr) {
+        await releaseReservedItemsForOrder(orderId)
+        logError('CHECKOUT', 'wallet_debit RPC error', { orderId, error: debitErr.message })
+        return NextResponse.json({ error: 'Gagal memproses saldo. Coba lagi.' }, { status: 500 })
+      }
+      if (!debit?.ok) {
+        await releaseReservedItemsForOrder(orderId)
+        if (debit?.msg === 'insufficient_balance') {
+          return NextResponse.json({
+            error: 'Saldo tidak cukup. Silakan top up saldo terlebih dahulu.',
+            insufficientBalance: true,
+            balance: Number(debit?.balance || 0),
+          }, { status: 400 })
+        }
+        return NextResponse.json({ error: 'Gagal memproses saldo.' }, { status: 400 })
+      }
+
+      // 3. Insert the order as already completed + paid.
+      const dbOrderItems = serverItems.map((item) => ({
+        product_id: item.product.id,
+        product_code: item.product.kode,
+        product_name: item.product.nama,
+        quantity: item.quantity,
+        price: item.product.price,
+      }))
+
+      const { error: insertError } = await supabase.from('orders').insert({
+        order_id: orderId,
+        user_web_id: sessionUser.userId,
+        customer_name: normalizedCustomerName,
+        customer_email: normalizedCustomerEmail,
+        customer_phone: normalizedCustomerPhone,
+        status: 'completed',
+        total_amount: Math.round(totalAmount),
+        payment_method: 'balance',
+        payment_provider: 'balance',
+        items: dbOrderItems,
+        promo_code: rawPromoCodeForPreCharge || null,
+        promo_discount: preChargePromoDiscount,
+        affiliate_code: normalizedAffiliateCode || null,
+        user_ref: `web:${sessionUser.userId}`,
+        paid_at: new Date().toISOString(),
+      })
+
+      if (insertError) {
+        // Refund the debited balance and release stock on failure.
+        await supabase.rpc('wallet_credit_user', {
+          p_user_id: sessionUser.userId,
+          p_amount: Math.round(totalAmount),
+          p_type: 'refund',
+          p_description: `Refund gagal order ${orderId}`,
+          p_ref_id: orderId,
+        })
+        await releaseReservedItemsForOrder(orderId)
+        logError('CHECKOUT', 'Balance order insert failed; refunded', { orderId, error: insertError.message })
+        return NextResponse.json({ error: 'Gagal membuat pesanan (Database). Saldo dikembalikan.' }, { status: 500 })
+      }
+
+      // 4. Finalize items + email (reuse the settle path; provider-agnostic).
+      try {
+        const { settleQiospayOrder } = await import('@/lib/orders/settle-qiospay')
+        await settleQiospayOrder(orderId, Math.round(totalAmount))
+      } catch (e: any) {
+        logWarn('CHECKOUT', 'Balance settle warning (non-fatal)', { orderId, error: e?.message })
+      }
+
+      // Balance payment is instantly paid — notify admin with a success event
+      // (not the "pending" new-order notice), since settleQiospayOrder won't fire
+      // its own success notify for an order inserted as already-completed.
+      await sendWebsiteOrderEventNotification({
+        title: '✅ PEMBAYARAN BERHASIL (SALDO)',
+        orderId,
+        customerName: normalizedCustomerName,
+        customerPhone: normalizedCustomerPhone,
+        totalAmount: Math.round(totalAmount),
+        status: 'completed',
+        details: `Dibayar pakai saldo. Sisa saldo: ${formatCurrency(Number(debit.balance || 0))}`,
+      })
+
+      logInfo('CHECKOUT', 'Balance order completed', { orderId, balance: debit.balance })
+
+      return NextResponse.json({
+        success: true,
+        orderId,
+        paidWithBalance: true,
+        redirectUrl: `/order-success?orderId=${orderId}`,
+      })
+    }
+
     if (activeGateway === 'tokopay') {
       const merchantId = process.env.TOKOPAY_MERCHANT_ID
       const secretKey = process.env.TOKOPAY_SECRET_KEY

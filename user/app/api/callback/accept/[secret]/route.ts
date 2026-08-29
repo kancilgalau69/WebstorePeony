@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
 import { settleQiospayOrder } from '@/lib/orders/settle-qiospay'
+import { settleTopupOrder, findPendingTopupByAmount } from '@/lib/orders/settle-topup'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -97,6 +98,15 @@ export async function POST(
  * Returns true if a matching order was found and handed off.
  */
 async function reconcileQiospayPaymentByAmount(amount: number): Promise<boolean> {
+  // 1. Try to match a pending saldo TOPUP first (deposit balance).
+  const topupId = await findPendingTopupByAmount(amount)
+  if (topupId) {
+    logInfo('QIOSPAY CALLBACK', 'Matched pending topup by amount', { topupId, amount })
+    const res = await settleTopupOrder(topupId)
+    return res.completed
+  }
+
+  // 2. Otherwise match a pending product order.
   const { data: orders, error } = await supabase
     .from('orders')
     .select('order_id, total_amount, status, created_at')
@@ -116,7 +126,7 @@ async function reconcileQiospayPaymentByAmount(amount: number): Promise<boolean>
 
   const order = orders?.[0]
   if (!order) {
-    logWarn('QIOSPAY CALLBACK', 'No pending Qiospay order matches amount', { amount })
+    logWarn('QIOSPAY CALLBACK', 'No pending Qiospay order/topup matches amount', { amount })
     return false
   }
 

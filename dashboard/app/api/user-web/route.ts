@@ -15,7 +15,7 @@ function jsonNoStore(payload: any, status = 200) {
   })
 }
 
-// GET - Fetch all user_web
+// GET - Fetch all user_web (with wallet balance)
 export async function GET() {
   try {
     const supabase = createServerClient()
@@ -29,7 +29,27 @@ export async function GET() {
       return jsonNoStore({ error: error.message || JSON.stringify(error) }, 400)
     }
 
-    return jsonNoStore({ data: data || [] })
+    const users = data || []
+
+    // Attach wallet balances (single query, mapped by user_id).
+    let balanceByUser = new Map<string, number>()
+    try {
+      const { data: wallets } = await supabase
+        .from('user_wallets')
+        .select('user_id, saldo')
+      for (const w of wallets || []) {
+        balanceByUser.set(String(w.user_id), Number(w.saldo || 0))
+      }
+    } catch {
+      // wallet table optional; default 0
+    }
+
+    const withBalance = users.map((u: any) => ({
+      ...u,
+      saldo: balanceByUser.get(String(u.id)) || 0,
+    }))
+
+    return jsonNoStore({ data: withBalance })
   } catch (err: any) {
     return jsonNoStore({ error: err?.message || 'Failed to fetch web users' }, 500)
   }
@@ -126,6 +146,53 @@ export async function PUT(req: NextRequest) {
     return jsonNoStore({ data })
   } catch (err: any) {
     return jsonNoStore({ error: err?.message || 'Failed to update web user' }, 500)
+  }
+}
+
+// PATCH - Adjust a user's wallet balance.
+// body: { id, mode: 'set' | 'add', amount, note? }
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase = createServerClient()
+    const body = await req.json()
+    const id = String(body.id || '').trim()
+    const mode = body.mode === 'add' ? 'add' : 'set'
+    const amount = Number(body.amount)
+    const note = String(body.note || '').trim() || (mode === 'add' ? 'Penyesuaian saldo admin' : 'Set saldo admin')
+
+    if (!id) return jsonNoStore({ error: 'Missing user id' }, 400)
+    if (!Number.isFinite(amount)) return jsonNoStore({ error: 'Nominal tidak valid' }, 400)
+
+    if (mode === 'add') {
+      if (amount === 0) return jsonNoStore({ error: 'Nominal tidak boleh 0' }, 400)
+      // add positive = credit, negative = debit
+      if (amount > 0) {
+        const { data, error } = await supabase.rpc('wallet_credit_user', {
+          p_user_id: id, p_amount: amount, p_type: 'topup', p_description: note, p_ref_id: 'ADMIN-ADJUST',
+        })
+        if (error) return jsonNoStore({ error: error.message }, 500)
+        if (!data?.ok) return jsonNoStore({ error: data?.msg || 'Gagal menambah saldo' }, 400)
+        return jsonNoStore({ success: true, balance: data.balance })
+      } else {
+        const { data, error } = await supabase.rpc('wallet_debit_user', {
+          p_user_id: id, p_amount: Math.abs(amount), p_description: note, p_ref_id: 'ADMIN-ADJUST',
+        })
+        if (error) return jsonNoStore({ error: error.message }, 500)
+        if (!data?.ok) return jsonNoStore({ error: data?.msg === 'insufficient_balance' ? 'Saldo user tidak cukup untuk dikurangi' : (data?.msg || 'Gagal mengurangi saldo') }, 400)
+        return jsonNoStore({ success: true, balance: data.balance })
+      }
+    }
+
+    // mode === 'set' : absolute balance
+    if (amount < 0) return jsonNoStore({ error: 'Saldo tidak boleh negatif' }, 400)
+    const { data, error } = await supabase.rpc('wallet_set_user', {
+      p_user_id: id, p_new_balance: amount, p_description: note,
+    })
+    if (error) return jsonNoStore({ error: error.message }, 500)
+    if (!data?.ok) return jsonNoStore({ error: data?.msg || 'Gagal mengubah saldo' }, 400)
+    return jsonNoStore({ success: true, balance: data.balance })
+  } catch (err: any) {
+    return jsonNoStore({ error: err?.message || 'Failed to adjust balance' }, 500)
   }
 }
 

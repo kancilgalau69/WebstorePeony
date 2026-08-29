@@ -6,7 +6,7 @@ import {
   FiSearch, FiChevronLeft, FiChevronRight, FiUsers, FiGlobe,
   FiEdit2, FiTrash2, FiX, FiCheck, FiToggleLeft, FiToggleRight,
   FiAlertCircle, FiCheckCircle, FiMail, FiPhone, FiUser, FiEye,
-  FiClock, FiHash, FiAtSign, FiMessageSquare
+  FiClock, FiHash, FiAtSign, FiMessageSquare, FiDollarSign
 } from 'react-icons/fi'
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ type WebUser = {
   is_active: boolean
   created_at: string
   updated_at: string
+  saldo?: number
 }
 
 type TabKey = 'telegram' | 'web'
@@ -448,6 +449,94 @@ function DetailUserModal({ user, onClose }: { user: WebUser; onClose: () => void
   )
 }
 
+// ─── Balance Adjust Modal ────────────────────────────────────────
+function BalanceModal({ user, onSave, onClose, saving }: {
+  user: WebUser; onSave: (mode: 'set' | 'add', amount: number, note: string) => void; onClose: () => void; saving: boolean
+}) {
+  const [mode, setMode] = useState<'add' | 'set'>('add')
+  const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
+  const current = Number(user.saldo || 0)
+  const amt = Number(amount)
+
+  const preview = mode === 'add'
+    ? current + (Number.isFinite(amt) ? amt : 0)
+    : (Number.isFinite(amt) ? amt : current)
+
+  const fmt = (v: number) => 'Rp ' + Number(v || 0).toLocaleString('id-ID')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!Number.isFinite(amt)) return
+    onSave(mode, amt, note.trim())
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+          <h3 className="text-lg font-bold text-gray-900">Ubah Saldo User</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg transition"><FiX size={20} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="bg-indigo-50 rounded-lg p-3">
+            <p className="text-xs text-gray-500">{user.nama} · {user.email}</p>
+            <p className="text-sm font-bold text-indigo-700 mt-1">Saldo saat ini: {fmt(current)}</p>
+          </div>
+
+          {/* Mode toggle */}
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setMode('add')}
+              className={`py-2 rounded-lg text-sm font-semibold border transition ${mode === 'add' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+              Tambah / Kurangi
+            </button>
+            <button type="button" onClick={() => setMode('set')}
+              className={`py-2 rounded-lg text-sm font-semibold border transition ${mode === 'set' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-300'}`}>
+              Set Nilai Absolut
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {mode === 'add' ? 'Nominal (+ tambah, - kurangi)' : 'Saldo baru (Rp)'}
+            </label>
+            <input
+              type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+              placeholder={mode === 'add' ? 'mis. 50000 atau -20000' : 'mis. 100000'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Catatan (opsional)</label>
+            <input
+              type="text" value={note} onChange={(e) => setNote(e.target.value)}
+              placeholder="mis. deposit manual via transfer"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+            <span className="text-xs text-gray-500">Saldo setelah perubahan:</span>
+            <span className={`text-sm font-bold ${preview < 0 ? 'text-red-600' : 'text-green-700'}`}>{fmt(preview)}</span>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-1">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+              Batal
+            </button>
+            <button type="submit" disabled={saving || !amount || preview < 0} className="px-4 py-2 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2">
+              {saving ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Menyimpan...</>) : (<><FiCheck size={16} /> Simpan Saldo</>)}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // MAIN PAGE COMPONENT
 // ═══════════════════════════════════════════════════════════════════
@@ -455,7 +544,10 @@ export default function UsersPage() {
   const supabase = createBrowserClient()
 
   // ─── Tab state ─────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<TabKey>('telegram')
+  const [activeTab, setActiveTab] = useState<TabKey>('web')
+
+  // ─── Balance adjust modal state ────────────────────────────────
+  const [balanceUser, setBalanceUser] = useState<WebUser | null>(null)
 
   // ─── Telegram users state ──────────────────────────────────────
   const [telegramUsers, setTelegramUsers] = useState<TelegramUser[]>([])
@@ -628,6 +720,27 @@ export default function UsersPage() {
     }
   }, [editingWebUser])
 
+  const handleBalanceSave = useCallback(async (mode: 'set' | 'add', amount: number, note: string) => {
+    if (!balanceUser) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/user-web', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: balanceUser.id, mode, amount, note }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) throw new Error(json.error || 'Gagal mengubah saldo')
+      setWebUsers(prev => prev.map(u => u.id === balanceUser.id ? { ...u, saldo: Number(json.balance) } : u))
+      setToast({ message: `Saldo ${balanceUser.nama} diperbarui: Rp ${Number(json.balance).toLocaleString('id-ID')}`, type: 'success' })
+      setBalanceUser(null)
+    } catch (err: any) {
+      setToast({ message: err.message || 'Gagal mengubah saldo', type: 'error' })
+    } finally {
+      setSaving(false)
+    }
+  }, [balanceUser])
+
   const handleWebDelete = useCallback(async (user: WebUser) => {
     setSaving(true)
     try {
@@ -677,6 +790,7 @@ export default function UsersPage() {
 
   const activeWebUsers = useMemo(() => webUsers.filter(u => u.is_active).length, [webUsers])
   const inactiveWebUsers = useMemo(() => webUsers.filter(u => !u.is_active).length, [webUsers])
+  const totalWebBalance = useMemo(() => webUsers.reduce((sum, u) => sum + Number(u.saldo || 0), 0), [webUsers])
 
   // ─── Pagination ────────────────────────────────────────────────
   const currentItems = activeTab === 'telegram' ? filteredTelegramUsers : filteredWebUsers
@@ -746,6 +860,9 @@ export default function UsersPage() {
           onCancel={() => setDeletingWebUser(null)}
         />
       )}
+      {balanceUser && (
+        <BalanceModal user={balanceUser} onSave={handleBalanceSave} onClose={() => setBalanceUser(null)} saving={saving} />
+      )}
       {togglingWebUser && (
         <ConfirmDialog
           title={togglingWebUser.is_active ? 'Nonaktifkan User' : 'Aktifkan User'}
@@ -762,23 +879,9 @@ export default function UsersPage() {
       {/* Header */}
       <h1 className="text-xl md:text-2xl font-bold text-gray-900">Users</h1>
 
-      {/* Tabs */}
+      {/* Tabs (Web first) */}
       <div className="bg-white rounded-lg shadow">
         <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('telegram')}
-            className={`flex items-center gap-2 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition ${
-              activeTab === 'telegram'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <FiUsers size={16} />
-            <span>User Telegram</span>
-            <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-              activeTab === 'telegram' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
-            }`}>{telegramUsers.length}</span>
-          </button>
           <button
             onClick={() => setActiveTab('web')}
             className={`flex items-center gap-2 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition ${
@@ -792,6 +895,20 @@ export default function UsersPage() {
             <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${
               activeTab === 'web' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
             }`}>{webUsers.length}</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('telegram')}
+            className={`flex items-center gap-2 px-4 md:px-6 py-3 text-sm font-medium border-b-2 transition ${
+              activeTab === 'telegram'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <FiUsers size={16} />
+            <span>User Telegram</span>
+            <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+              activeTab === 'telegram' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'
+            }`}>{telegramUsers.length}</span>
           </button>
         </div>
       </div>
@@ -989,10 +1106,16 @@ export default function UsersPage() {
       {activeTab === 'web' && (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             <div className="bg-white rounded-lg shadow p-4 md:p-6 border-l-4 border-indigo-600 hover:shadow-lg transition">
               <p className="text-gray-600 text-xs md:text-sm font-medium">Total User Web</p>
               <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-1 md:mt-2">{webUsers.length}</p>
+            </div>
+            <div className="bg-white rounded-lg shadow p-4 md:p-6 border-l-4 border-purple-600 hover:shadow-lg transition">
+              <p className="text-purple-700 text-xs md:text-sm font-medium">Total Saldo</p>
+              <p className="text-base md:text-xl font-bold text-purple-700 mt-1 md:mt-2 truncate" title={`Rp ${totalWebBalance.toLocaleString('id-ID')}`}>
+                Rp {totalWebBalance.toLocaleString('id-ID')}
+              </p>
             </div>
             <div className="bg-white rounded-lg shadow p-4 md:p-6 border-l-4 border-green-600 hover:shadow-lg transition">
               <p className="text-green-700 text-xs md:text-sm font-medium">User Aktif</p>
@@ -1048,6 +1171,7 @@ export default function UsersPage() {
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Nama</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Email</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">No. Telepon</th>
+                        <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Saldo</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Status</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Terdaftar</th>
                         <th className="text-center px-6 py-3 font-semibold text-gray-900 text-sm">Aksi</th>
@@ -1064,6 +1188,9 @@ export default function UsersPage() {
                           <td className="px-6 py-3 text-sm text-gray-600">{user.email}</td>
                           <td className="px-6 py-3 text-sm text-gray-600">{user.phone}</td>
                           <td className="px-6 py-3">
+                            <span className="text-sm font-bold text-purple-700">Rp {Number(user.saldo || 0).toLocaleString('id-ID')}</span>
+                          </td>
+                          <td className="px-6 py-3">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                             }`}>
@@ -1075,6 +1202,13 @@ export default function UsersPage() {
                           </td>
                           <td className="px-6 py-3">
                             <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => setBalanceUser(user)}
+                                title="Ubah Saldo"
+                                className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                              >
+                                <FiDollarSign size={16} />
+                              </button>
                               <button
                                 onClick={() => setDetailWebUser(user)}
                                 title="Detail"
@@ -1132,6 +1266,10 @@ export default function UsersPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm mt-3">
                         <div>
+                          <span className="text-gray-500 text-xs">Saldo:</span>
+                          <p className="text-purple-700 font-bold">Rp {Number(user.saldo || 0).toLocaleString('id-ID')}</p>
+                        </div>
+                        <div>
                           <span className="text-gray-500 text-xs">No. Telepon:</span>
                           <p className="text-gray-700">{user.phone}</p>
                         </div>
@@ -1143,6 +1281,12 @@ export default function UsersPage() {
                         </div>
                       </div>
                       <div className="flex items-center flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => setBalanceUser(user)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 transition"
+                        >
+                          <FiDollarSign size={14} /> Saldo
+                        </button>
                         <button
                           onClick={() => setDetailWebUser(user)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition"

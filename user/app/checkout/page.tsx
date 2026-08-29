@@ -5,6 +5,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import Script from 'next/script'
+import Link from 'next/link'
 import { resolveWebPrice } from '@/lib/pricing'
 
 export default function CheckoutPage() {
@@ -38,6 +39,19 @@ export default function CheckoutPage() {
     gateway: string; subtotal: number; promoDiscount: number;
     netTotal: number; adminFee: number; total: number;
   } | null>(null)
+
+  // Wallet balance + payment method choice ('qris' | 'balance')
+  const [walletBalance, setWalletBalance] = useState<number | null>(null)
+  const [payMethod, setPayMethod] = useState<'qris' | 'balance'>('qris')
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/wallet', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d) setWalletBalance(Number(d.balance || 0)) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const renderCaptcha = () => {
     const hc = (window as any).hcaptcha
@@ -226,6 +240,8 @@ export default function CheckoutPage() {
           ...(appliedPromo ? { promoCode: appliedPromo.code, promoDiscount: appliedPromo.discount_amount } : {}),
           // Reuse the previewed Qiospay admin fee so the charged total matches what was shown.
           ...(paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee ? { qiospayAdminFee: paymentInfo.adminFee } : {}),
+          // Pay with wallet balance instead of QRIS.
+          ...(payMethod === 'balance' ? { payMethod: 'balance' } : {}),
         }),
       })
 
@@ -237,8 +253,22 @@ export default function CheckoutPage() {
           router.push('/register?redirect=/checkout')
           return
         }
+        // Insufficient balance -> guide to deposit.
+        if (data.insufficientBalance) {
+          resetCaptcha()
+          alert('Saldo tidak cukup. Anda akan diarahkan ke halaman deposit.')
+          router.push('/deposit')
+          return
+        }
         resetCaptcha()
         throw new Error(data.error || 'Gagal membuat transaksi')
+      }
+
+      // Paid with balance -> order already completed.
+      if (data.paidWithBalance) {
+        clearCart()
+        await router.push(data.redirectUrl || `/order-success?orderId=${data.orderId}`)
+        return
       }
 
       if (data.qrString || data.qrUrl) {
@@ -389,18 +419,57 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                <div className="bg-[#FBEEF1] border-2 border-[#F4D6DC] rounded-2xl p-4 mt-6">
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">📱</span>
-                    <div>
-                      <h3 className="font-fredoka text-base text-[#720002]">
-                        Metode Pembayaran: Instant QRIS
-                      </h3>
-                      <p className="text-xs font-bold text-[#9E6B72] mt-0.5">
-                        Dukungan pembayaran via BCA, Mandiri, BRI, BNI, GoPay, OVO, Dana, ShopeePay, &amp; LinkAja.
+                <div className="mt-6">
+                  <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-2">
+                    Metode Pembayaran
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* QRIS */}
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod('qris')}
+                      className={`text-left p-4 rounded-2xl border-2 transition ${
+                        payMethod === 'qris' ? 'border-[#DB8291] bg-[#FBEEF1]' : 'border-[#F4D6DC] bg-white hover:border-[#E7A6B1]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <i className="fa-solid fa-qrcode text-[#DB8291]"></i>
+                        <span className="font-fredoka text-sm text-[#720002]">QRIS</span>
+                        {payMethod === 'qris' && <i className="fa-solid fa-circle-check text-[#DB8291] ml-auto"></i>}
+                      </div>
+                      <p className="text-[11px] font-bold text-[#9E6B72] mt-1">Scan via bank / e-wallet</p>
+                    </button>
+
+                    {/* Saldo */}
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod('balance')}
+                      className={`text-left p-4 rounded-2xl border-2 transition ${
+                        payMethod === 'balance' ? 'border-[#DB8291] bg-[#FBEEF1]' : 'border-[#F4D6DC] bg-white hover:border-[#E7A6B1]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <i className="fa-solid fa-wallet text-[#DB8291]"></i>
+                        <span className="font-fredoka text-sm text-[#720002]">Saldo</span>
+                        {payMethod === 'balance' && <i className="fa-solid fa-circle-check text-[#DB8291] ml-auto"></i>}
+                      </div>
+                      <p className="text-[11px] font-bold text-[#9E6B72] mt-1">
+                        {walletBalance === null ? 'Memuat saldo...' : `Saldo: ${formatPrice(walletBalance)}`}
                       </p>
-                    </div>
+                    </button>
                   </div>
+
+                  {payMethod === 'balance' && walletBalance !== null && walletBalance < finalTotal && (
+                    <div className="mt-3 bg-[#FFE4E6] border border-[#C81E3A]/20 text-[#C81E3A] rounded-2xl p-3 text-xs font-bold flex items-center justify-between gap-2">
+                      <span>Saldo tidak cukup ({formatPrice(walletBalance)}).</span>
+                      <Link href="/deposit" className="underline shrink-0">Top up dulu</Link>
+                    </div>
+                  )}
+                  {payMethod === 'balance' && (
+                    <p className="text-[11px] font-bold text-[#2E7D5B] mt-2">
+                      <i className="fa-solid fa-bolt"></i> Bayar pakai saldo = instan, tanpa biaya admin.
+                    </p>
+                  )}
                 </div>
 
                 {/* CAPTCHA */}
@@ -413,10 +482,20 @@ export default function CheckoutPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || (!captchaToken && captchaReady)}
+                  disabled={
+                    loading ||
+                    (!captchaToken && captchaReady) ||
+                    (payMethod === 'balance' && walletBalance !== null && walletBalance < finalTotal)
+                  }
                   className="btn-card-buy w-full py-3.5 text-xs mt-6"
                 >
-                  {loading ? 'Memproses Transaksi...' : !captchaToken && captchaReady ? 'Selesaikan CAPTCHA dulu' : `Bayar Sekarang ${formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)} ✦`}
+                  {loading
+                    ? 'Memproses Transaksi...'
+                    : !captchaToken && captchaReady
+                    ? 'Selesaikan CAPTCHA dulu'
+                    : payMethod === 'balance'
+                    ? `Bayar Pakai Saldo ${formatPrice(finalTotal)} ✦`
+                    : `Bayar Sekarang ${formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)} ✦`}
                 </button>
               </form>
             </div>
@@ -484,8 +563,8 @@ export default function CheckoutPage() {
                   <span className="text-[#720002]">{formatPrice(finalTotal)}</span>
                 </div>
 
-                {/* Qiospay admin fee (unique code that will be paid by customer) */}
-                {paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
+                {/* Qiospay admin fee — only for QRIS payment, not when paying with saldo */}
+                {payMethod !== 'balance' && paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
                   <div className="flex justify-between text-xs font-bold text-[#9E6B72]">
                     <span className="flex items-center gap-1">
                       Biaya Admin
@@ -497,14 +576,25 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
+                {payMethod === 'balance' && (
+                  <div className="flex justify-between text-xs font-bold text-[#9E6B72]">
+                    <span>Biaya Admin</span>
+                    <span className="text-[#2E7D5B]">Gratis</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between font-fredoka text-xl pt-1 border-t border-[#F4D6DC]">
                   <span className="text-[#720002]">Total</span>
                   <span className="text-[#DB8291]">
-                    {formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)}
+                    {formatPrice(
+                      payMethod !== 'balance' && paymentInfo?.gateway === 'qiospay'
+                        ? finalTotal + (paymentInfo.adminFee || 0)
+                        : finalTotal
+                    )}
                   </span>
                 </div>
 
-                {paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
+                {payMethod !== 'balance' && paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
                   <p className="text-[10px] font-bold text-[#9E6B72] bg-[#FBEEF1] border border-[#F4D6DC] rounded-xl px-3 py-2 mt-1">
                     ℹ️ Biaya admin {formatPrice(paymentInfo.adminFee)} adalah kode unik yang membantu sistem memverifikasi pembayaran Anda secara otomatis.
                   </p>

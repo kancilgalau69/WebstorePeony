@@ -112,6 +112,14 @@ export default function Header() {
           >
             Riwayat
           </Link>
+          <Link
+            href="/deposit"
+            className={`text-sm font-bold transition-all px-3 py-1.5 rounded-full ${
+              pathname === '/deposit' ? 'text-[#720002] bg-[#FBEEF1]' : 'text-[#9E6B72] hover:text-[#DB8291] hover:bg-[#FBEEF1]'
+            }`}
+          >
+            Saldo
+          </Link>
         </div>
 
         {/* Right Actions */}
