@@ -45,13 +45,14 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse body
     const body = await request.json()
-    const { nama, email, phone, password, confirmPassword, captchaToken } = body
+    const { nama, email, phone, password, confirmPassword, captchaToken, token } = body
 
     const trimmedNama = String(nama || '').trim()
     const normalizedEmail = normalizeEmail(email)
     const normalizedPhone = normalizePhone(phone)
     const rawPassword = String(password || '')
     const rawConfirmPassword = String(confirmPassword || '')
+    const normalizedToken = String(token || '').trim().toUpperCase()
 
     // 3. Basic validation
     if (!trimmedNama) {
@@ -67,6 +68,25 @@ export async function POST(request: NextRequest) {
 
     if (!normalizedPhone || !isValidPhone(normalizedPhone)) {
       return NextResponse.json({ error: 'Nomor HP tidak valid. Gunakan format 08xxxxxxxxxx' }, { status: 400 })
+    }
+
+    // 3b. Registration token validation (admin-issued, single-use)
+    if (!normalizedToken) {
+      return NextResponse.json({ error: 'Token pendaftaran wajib diisi. Minta token ke admin.' }, { status: 400 })
+    }
+
+    const { data: tokenRow } = await supabaseAdmin
+      .from('registration_tokens')
+      .select('id, status')
+      .eq('token', normalizedToken)
+      .limit(1)
+      .single()
+
+    if (!tokenRow) {
+      return NextResponse.json({ error: 'Token pendaftaran tidak valid.' }, { status: 400 })
+    }
+    if (tokenRow.status !== 'unused') {
+      return NextResponse.json({ error: 'Token pendaftaran sudah digunakan.' }, { status: 400 })
     }
 
     // 4. Password validation
@@ -150,6 +170,26 @@ export async function POST(request: NextRequest) {
 
     if (!newUser) {
       return NextResponse.json({ error: 'Gagal mendaftarkan akun.' }, { status: 500 })
+    }
+
+    // 9b. Consume the registration token (atomic claim to avoid double-use races).
+    const { data: claimedToken } = await supabaseAdmin
+      .from('registration_tokens')
+      .update({
+        status: 'used',
+        used_by_user_web: newUser.id,
+        used_by_email: normalizedEmail,
+        used_at: new Date().toISOString(),
+      })
+      .eq('id', tokenRow.id)
+      .eq('status', 'unused')
+      .select('id')
+      .maybeSingle()
+
+    if (!claimedToken) {
+      // Another request consumed the token first — roll back the new user.
+      await supabaseAdmin.from('user_web').delete().eq('id', newUser.id)
+      return NextResponse.json({ error: 'Token pendaftaran sudah digunakan.' }, { status: 400 })
     }
 
     // 10. Create session token & set cookie

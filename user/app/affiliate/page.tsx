@@ -51,7 +51,7 @@ interface AffiliateData {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    pending: 'bg-[#FEF08A] text-[#77A39A]',
+    pending: 'bg-[#FEF08A] text-[#C56676]',
     approved: 'bg-[#DBEAFE] text-[#1E40AF]',
     completed: 'bg-[#DCFCE7] text-[#15803D]',
     rejected: 'bg-[#FFE4E6] text-[#BE123C]',
@@ -67,7 +67,7 @@ function StatusBadge({ status }: { status: string }) {
     reversed: 'Dibatalkan',
   }
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${styles[status] || 'bg-[#F7F2F6] text-[#8E7188]'}`}>
+    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${styles[status] || 'bg-[#FBEEF1] text-[#9E6B72]'}`}>
       {labels[status] || status}
     </span>
   )
@@ -166,7 +166,7 @@ export default function AffiliatePage() {
 
   if (authLoading || loading) {
     return (
-      <div className="py-12 text-center text-[#8E7188]">
+      <div className="py-12 text-center text-[#9E6B72]">
         <div className="text-4xl animate-bounce mb-2">🌸</div>
         <p className="font-fredoka text-lg">Memuat Affiliate...</p>
       </div>
@@ -178,10 +178,10 @@ export default function AffiliatePage() {
   if (!data.enabled) {
     return (
       <div className="max-w-md mx-auto py-12 animate-fadeIn text-center">
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-8 shadow-xs space-y-4">
-          <div className="text-5xl text-[#CB96BA] mb-2">🌸</div>
-          <h1 className="font-fredoka text-2xl text-[#3E2D3B]">Program Affiliate Belum Aktif</h1>
-          <p className="text-xs text-[#8E7188]">Hubungi admin untuk informasi pendaftaran affiliate.</p>
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-4">
+          <div className="text-5xl text-[#DB8291] mb-2">🌸</div>
+          <h1 className="font-fredoka text-2xl text-[#720002]">Program Affiliate Belum Aktif</h1>
+          <p className="text-xs text-[#9E6B72]">Hubungi admin untuk informasi pendaftaran affiliate.</p>
           <Link href="/profile" className="btn-card-buy w-full py-3 text-xs">
             Kembali ke Profil ✦
           </Link>
@@ -195,12 +195,12 @@ export default function AffiliatePage() {
   return (
     <div className="max-w-4xl mx-auto py-4 space-y-6 animate-fadeIn">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs font-bold text-[#8E7188]">
-        <Link href="/profile" className="hover:text-[#CB96BA]">
+      <nav className="flex items-center gap-2 text-xs font-bold text-[#9E6B72]">
+        <Link href="/profile" className="hover:text-[#DB8291]">
           <i className="fa-solid fa-user mr-1"></i> Profil
         </Link>
-        <i className="fa-solid fa-chevron-right text-[9px] text-[#B0B3D6]"></i>
-        <span className="text-[#3E2D3B]">Program Affiliate</span>
+        <i className="fa-solid fa-chevron-right text-[9px] text-[#E7A6B1]"></i>
+        <span className="text-[#720002]">Program Affiliate</span>
       </nav>
 
       {message && (
@@ -212,7 +212,7 @@ export default function AffiliatePage() {
       )}
 
       {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-[#CB96BA] to-[#B0B3D6] rounded-3xl p-6 md:p-8 text-white shadow-xs space-y-4">
+      <div className="bg-gradient-to-r from-[#DB8291] to-[#E7A6B1] rounded-3xl p-6 md:p-8 text-white shadow-xs space-y-4">
         <div>
           <span className="inline-block px-3 py-1 rounded-full bg-white/20 text-xs font-extrabold mb-2">
             💖 Program Affiliate
@@ -240,7 +240,7 @@ export default function AffiliatePage() {
               />
               <button
                 onClick={copyLink}
-                className="px-4 py-2 rounded-xl bg-white text-[#CB96BA] font-extrabold text-xs hover:bg-white/90"
+                className="px-4 py-2 rounded-xl bg-white text-[#DB8291] font-extrabold text-xs hover:bg-white/90"
               >
                 {copied ? '✓ Disalin' : 'Salin Link'}
               </button>
@@ -251,30 +251,30 @@ export default function AffiliatePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border-2 border-[#F0E2EB] p-4 shadow-xs">
-          <p className="text-xs font-extrabold text-[#8E7188]">Saldo Tersedia</p>
-          <p className="font-fredoka text-xl text-[#CB96BA] mt-1">{formatIDR(affiliate.available_saldo)}</p>
+        <div className="bg-white rounded-2xl border-2 border-[#F4D6DC] p-4 shadow-xs">
+          <p className="text-xs font-extrabold text-[#9E6B72]">Saldo Tersedia</p>
+          <p className="font-fredoka text-xl text-[#DB8291] mt-1">{formatIDR(affiliate.available_saldo)}</p>
         </div>
-        <div className="bg-white rounded-2xl border-2 border-[#F0E2EB] p-4 shadow-xs">
-          <p className="text-xs font-extrabold text-[#8E7188]">Total Komisi</p>
-          <p className="font-fredoka text-xl text-[#3E2D3B] mt-1">{formatIDR(affiliate.total_earnings)}</p>
+        <div className="bg-white rounded-2xl border-2 border-[#F4D6DC] p-4 shadow-xs">
+          <p className="text-xs font-extrabold text-[#9E6B72]">Total Komisi</p>
+          <p className="font-fredoka text-xl text-[#720002] mt-1">{formatIDR(affiliate.total_earnings)}</p>
         </div>
-        <div className="bg-white rounded-2xl border-2 border-[#F0E2EB] p-4 shadow-xs">
-          <p className="text-xs font-extrabold text-[#8E7188]">Total Order</p>
-          <p className="font-fredoka text-xl text-[#3E2D3B] mt-1">{affiliate.total_orders}</p>
+        <div className="bg-white rounded-2xl border-2 border-[#F4D6DC] p-4 shadow-xs">
+          <p className="text-xs font-extrabold text-[#9E6B72]">Total Order</p>
+          <p className="font-fredoka text-xl text-[#720002] mt-1">{affiliate.total_orders}</p>
         </div>
-        <div className="bg-white rounded-2xl border-2 border-[#F0E2EB] p-4 shadow-xs">
-          <p className="text-xs font-extrabold text-[#8E7188]">Total Klik</p>
-          <p className="font-fredoka text-xl text-[#3E2D3B] mt-1">{affiliate.total_clicks}</p>
+        <div className="bg-white rounded-2xl border-2 border-[#F4D6DC] p-4 shadow-xs">
+          <p className="text-xs font-extrabold text-[#9E6B72]">Total Klik</p>
+          <p className="font-fredoka text-xl text-[#720002] mt-1">{affiliate.total_clicks}</p>
         </div>
       </div>
 
       {/* Withdraw Box */}
-      <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 shadow-xs space-y-4">
+      <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-fredoka text-xl text-[#3E2D3B]">Pencairan Saldo</h2>
-            <p className="text-xs font-bold text-[#8E7188]">Min withdrawal: {formatIDR(settings.min_withdraw)}</p>
+            <h2 className="font-fredoka text-xl text-[#720002]">Pencairan Saldo</h2>
+            <p className="text-xs font-bold text-[#9E6B72]">Min withdrawal: {formatIDR(settings.min_withdraw)}</p>
           </div>
           <button
             onClick={() => setShowWithdraw(!showWithdraw)}
@@ -286,20 +286,20 @@ export default function AffiliatePage() {
         </div>
 
         {showWithdraw && (
-          <form onSubmit={handleWithdraw} className="pt-4 border-t-2 border-[#F0E2EB] space-y-3">
+          <form onSubmit={handleWithdraw} className="pt-4 border-t-2 border-[#F4D6DC] space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <input
                 type="number"
                 value={wdForm.amount}
                 onChange={e => setWdForm({ ...wdForm, amount: e.target.value })}
                 placeholder={`Nominal (Min ${formatIDR(settings.min_withdraw)})`}
-                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-xs font-extrabold outline-none"
+                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-xs font-extrabold outline-none"
                 required
               />
               <select
                 value={wdForm.bank_name}
                 onChange={e => setWdForm({ ...wdForm, bank_name: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-xs font-extrabold outline-none"
+                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-xs font-extrabold outline-none"
                 required
               >
                 <option value="">Pilih Bank / E-Wallet</option>
@@ -317,7 +317,7 @@ export default function AffiliatePage() {
                 value={wdForm.account_number}
                 onChange={e => setWdForm({ ...wdForm, account_number: e.target.value })}
                 placeholder="Nomor Rekening / HP E-Wallet"
-                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-xs font-extrabold outline-none"
+                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-xs font-extrabold outline-none"
                 required
               />
               <input
@@ -325,7 +325,7 @@ export default function AffiliatePage() {
                 value={wdForm.account_name}
                 onChange={e => setWdForm({ ...wdForm, account_name: e.target.value })}
                 placeholder="Nama Pemilik Rekening"
-                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-xs font-extrabold outline-none"
+                className="w-full px-4 py-2.5 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-xs font-extrabold outline-none"
                 required
               />
             </div>
@@ -337,20 +337,20 @@ export default function AffiliatePage() {
       </div>
 
       {/* History Tables */}
-      <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 shadow-xs space-y-4">
-        <h2 className="font-fredoka text-xl text-[#3E2D3B]">Riwayat Komisi</h2>
+      <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 shadow-xs space-y-4">
+        <h2 className="font-fredoka text-xl text-[#720002]">Riwayat Komisi</h2>
         {earnings.length === 0 ? (
-          <p className="text-xs text-[#8E7188] font-bold text-center py-4">Belum ada komisi tercatat.</p>
+          <p className="text-xs text-[#9E6B72] font-bold text-center py-4">Belum ada komisi tercatat.</p>
         ) : (
           <div className="space-y-2">
             {earnings.map(e => (
-              <div key={e.id} className="bg-[#F7F2F6] rounded-2xl p-3 flex justify-between items-center text-xs font-bold text-[#8E7188]">
+              <div key={e.id} className="bg-[#FBEEF1] rounded-2xl p-3 flex justify-between items-center text-xs font-bold text-[#9E6B72]">
                 <div>
-                  <p className="text-[#3E2D3B]">{e.order_code}</p>
+                  <p className="text-[#720002]">{e.order_code}</p>
                   <p className="text-[10px]">{formatDate(e.created_at)}</p>
                 </div>
                 <div className="text-right">
-                  <span className="font-fredoka text-sm text-[#CB96BA] block">+{formatIDR(e.commission_amount)}</span>
+                  <span className="font-fredoka text-sm text-[#DB8291] block">+{formatIDR(e.commission_amount)}</span>
                   <StatusBadge status={e.status} />
                 </div>
               </div>

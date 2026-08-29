@@ -25,6 +25,7 @@ interface RegisterData {
   password: string
   confirmPassword: string
   captchaToken: string
+  token: string
 }
 
 const AuthContext = createContext<AuthContextType>({

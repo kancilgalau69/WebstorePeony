@@ -135,247 +135,263 @@ function HomeInner() {
   const showSections = !loading && !activeSearch && selectedCategory === 'all'
 
   return (
-    <div className="w-full space-y-8 animate-fadeIn">
-      {/* ===== 1. PROMO BANNER SLIDER ===== */}
-      {showSections && (
-        <PromoSection />
-      )}
-
-      {/* ===== 2. FLASH SALE SECTION ===== */}
-      {showSections && discountProducts.length > 0 && (
-        <section className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl animate-bounce">⚡</span>
-              <h2 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B]">Flash Sale</h2>
-              <span className="px-3 py-1 rounded-full bg-[#D9777F] text-white text-[11px] font-black tracking-wider uppercase shadow-xs">
-                Promo Spesial
-              </span>
-            </div>
-          </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-none pb-2 pt-1">
-            {discountProducts.map(product => (
-              <div key={product.id} className="shrink-0 w-[270px]">
-                <ProductCard product={product} variant="horizontal" />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ===== 3. PRODUK TERATAS SECTION ===== */}
-      {showSections && topProducts.length > 0 && (
-        <section className="space-y-3 pt-2">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🌟</span>
-            <h2 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B]">Produk Teratas</h2>
-          </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-none pb-2 pt-1">
-            {topProducts.map(product => (
-              <div key={product.id} className="shrink-0 w-[270px]">
-                <ProductCard product={product} variant="horizontal" />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ===== 4. PRODUK TERLARIS SECTION ===== */}
-      {showSections && bestSellerProducts.length > 0 && (
-        <section className="space-y-3 pt-2">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🔥</span>
-            <h2 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B]">Produk Terlaris</h2>
-          </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-none pb-2 pt-1">
-            {bestSellerProducts.map(product => (
-              <div key={product.id} className="shrink-0 w-[270px]">
-                <ProductCard product={product} variant="horizontal" />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ===== 5. PRODUK TERBARU SECTION ===== */}
-      {showSections && newProducts.length > 0 && (
-        <section className="space-y-3 pt-2">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">✨</span>
-            <h2 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B]">Produk Terbaru</h2>
-          </div>
-          <div className="flex gap-4 overflow-x-auto scrollbar-none pb-2 pt-1">
-            {newProducts.map(product => (
-              <div key={product.id} className="shrink-0 w-[270px]">
-                <ProductCard product={product} variant="horizontal" />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ===== 6. SEMUA PRODUK / PRICELIST GRID SECTION ===== */}
-      <section id="products" className="scroll-mt-24 pt-4">
-        {/* Section Header */}
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="font-fredoka text-3xl md:text-4xl text-[#3E2D3B] tracking-wide">
-            Semua Produk
-          </h2>
-          <span className="text-xs md:text-sm font-extrabold text-[#B0B3D6]">
-            {filteredProducts.length} Produk Ready
-          </span>
-        </div>
-
-        {/* Search & Category Pills Controls */}
-        <div className="flex flex-col gap-4 mb-6">
-          {/* Round Search Input Bar */}
-          <div className="relative w-full">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-[#8E7188] pointer-events-none">
-              ⌕
-            </span>
-            <input
-              type="text"
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="Cari aplikasi premium..."
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-[#F0E2EB] bg-white text-[#3E2D3B] font-extrabold text-sm outline-none shadow-sm focus:border-[#CB96BA] focus:ring-4 focus:ring-[#CB96BA]/15 transition-all"
-            />
-            {filterQuery && (
-              <button
-                onClick={() => setFilterQuery('')}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E7188] hover:text-[#3E2D3B]"
-              >
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            )}
-          </div>
-
-          {/* Category Pills horizontal bar */}
-          {!loading && categories.length > 0 && (
-            <div ref={categoryScrollRef} className="flex gap-3 overflow-x-auto scrollbar-none py-2 px-1">
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={`px-6 py-2.5 rounded-full font-extrabold text-xs whitespace-nowrap border-2 transition-all flex items-center justify-center gap-2 shadow-xs shrink-0 ${
-                  selectedCategory === 'all'
-                    ? 'bg-gradient-to-r from-[#CB96BA] to-[#B0B3D6] text-white border-transparent shadow-md scale-105'
-                    : 'bg-white text-[#3E2D3B] border-[#F0E2EB] hover:border-[#B0B3D6] hover:-translate-y-0.5'
-                }`}
-              >
-                🌸 Semua
-              </button>
-              {categories.map(cat => {
-                const icon = getCategoryIcon(cat)
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-6 py-2.5 rounded-full font-extrabold text-xs whitespace-nowrap border-2 transition-all flex items-center justify-center gap-2 shadow-xs shrink-0 ${
-                      selectedCategory === cat
-                        ? 'bg-gradient-to-r from-[#CB96BA] to-[#B0B3D6] text-white border-transparent shadow-md scale-105'
-                        : 'bg-white text-[#3E2D3B] border-[#F0E2EB] hover:border-[#B0B3D6] hover:-translate-y-0.5'
-                    }`}
-                  >
-                    <i className={`fa-solid ${icon} text-xs`}></i>
-                    <span>{cat}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 bg-[#FFE4E6] border border-[#BE123C]/20 text-[#BE123C] px-5 py-4 rounded-2xl flex items-start gap-3">
-            <i className="fa-solid fa-triangle-exclamation mt-0.5 text-[#BE123C]"></i>
-            <div>
-              <p className="font-bold text-sm">Gagal memuat produk</p>
-              <p className="text-xs mt-1">{error}</p>
-              <button 
-                onClick={() => fetchProducts({ silent: false })}
-                className="mt-2 text-xs font-bold underline"
-              >
-                Coba Lagi
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Product Grid */}
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-5">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="peony-card h-64 animate-pulse">
-                <div className="w-16 h-16 rounded-2xl bg-gray-200 mt-4 mb-3"></div>
-                <div className="w-3/4 h-4 bg-gray-200 rounded mb-2"></div>
-                <div className="w-1/2 h-4 bg-gray-200 rounded mb-3"></div>
-                <div className="w-full h-9 bg-gray-200 rounded-xl mt-auto"></div>
-              </div>
-            ))}
-          </div>
-        ) : filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-5">
-            {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : !error ? (
-          <div className="text-center py-16 bg-white rounded-3xl border-2 border-[#F0E2EB]">
-            <div className="text-5xl text-[#CB96BA] mb-3">🌸</div>
-            <h3 className="font-fredoka text-xl text-[#3E2D3B] mb-1">
-              Produk Tidak Ditemukan
-            </h3>
-            <p className="text-xs text-[#8E7188] mb-4">
-              Coba kata kunci pencarian lain atau pilih kategori berbeda.
+    <div className="w-full animate-fadeIn font-jakarta">
+      {/* ===== HERO (Light full width) ===== */}
+      <section className="w-full bg-gradient-to-b from-[#FBEEF1] to-[#FDF6F8] pt-10 pb-32 relative">
+        <div className="max-w-[1160px] mx-auto px-4 grid md:grid-cols-2 gap-10 items-center">
+          <div>
+            <h1 className="font-fredoka text-4xl md:text-[3.25rem] leading-[1.15] text-[#720002]">
+              <span className="text-[#DB8291]">Buka fitur Premium</span> <br className="hidden md:block"/>
+              untuk Pengalaman Tanpa Batas
+            </h1>
+            <p className="text-sm md:text-base text-[#8A3A44] leading-relaxed mt-6 max-w-lg">
+              Pilihan yang cocok bagi yang sedang mencari berbagai macam aplikasi premium untuk kebutuhan customermu. Nikmati streaming, editing, education, dan music dengan nyaman bersama PEONY STORE ♡
             </p>
-            <button
-              onClick={() => { setSelectedCategory('all'); setFilterQuery('') }}
-              className="btn-card-buy max-w-xs mx-auto"
-            >
-              Reset Filter ✦
-            </button>
+            <div className="flex flex-wrap items-center gap-4 mt-8">
+              <a href="#products" className="strawberry-gradient text-white font-extrabold text-sm px-8 py-3.5 rounded-full shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
+                <i className="fa-solid fa-bag-shopping"></i> Belanja Sekarang
+              </a>
+              <a href="/register" className="bg-white border-2 border-[#DB8291] text-[#720002] font-extrabold text-sm px-8 py-3.5 rounded-full hover:bg-[#FBEEF1] transition-all flex items-center gap-2">
+                <i className="fa-solid fa-user-plus"></i> Daftar Akun
+              </a>
+            </div>
+
+            {/* Stats inline */}
+            <div className="flex items-center gap-10 mt-12">
+              <div className="flex items-center gap-3">
+                <i className="fa-solid fa-box-open text-2xl text-[#DB8291]"></i>
+                <div>
+                  <div className="font-fredoka text-xl text-[#720002]">14.0K</div>
+                  <div className="text-[10px] uppercase font-bold text-[#9E6B72]">Produk terjual</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <i className="fa-solid fa-layer-group text-2xl text-[#DB8291]"></i>
+                <div>
+                  <div className="font-fredoka text-xl text-[#720002]">89</div>
+                  <div className="text-[10px] uppercase font-bold text-[#9E6B72]">Total produk</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <i className="fa-solid fa-users text-2xl text-[#DB8291]"></i>
+                <div>
+                  <div className="font-fredoka text-xl text-[#720002]">1.8K</div>
+                  <div className="text-[10px] uppercase font-bold text-[#9E6B72]">Total pembeli</div>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : null}
+
+          <div className="relative flex justify-end">
+             <div className="relative w-full max-w-md aspect-square bg-white border-[6px] border-[#FBEEF1] rounded-3xl shadow-xl overflow-hidden flex flex-col items-center justify-center p-6 text-center">
+               <div className="absolute top-4 left-4 rotate-[-10deg] bg-white border border-[#DB8291] text-[#DB8291] text-[10px] font-black px-3 py-1 rounded-full shadow-md z-10">SAVE 50%</div>
+               <div className="absolute bottom-6 right-6 rotate-[5deg] bg-[#DB8291] text-white text-[10px] font-black px-3 py-1 rounded-full shadow-md z-10">TRUSTED 100%</div>
+               <div className="w-32 h-32 rounded-full bg-[#FBEEF1] flex items-center justify-center text-[#DB8291] mb-6">
+                 <i className="fa-solid fa-wand-magic-sparkles text-6xl"></i>
+               </div>
+               <h3 className="font-fredoka text-3xl text-[#720002]">Peony Store!</h3>
+               <p className="text-xs text-[#8A3A44] font-bold mt-2">Solusi Digital Kamu ✨</p>
+             </div>
+          </div>
+        </div>
       </section>
 
-      {/* ===== 7. CARA BELANJA SECTION ===== */}
-      {!activeSearch && (
-        <section className="py-8 px-6 rounded-3xl bg-white border-2 border-[#F0E2EB] shadow-xs my-8">
-          <div className="text-center mb-6">
-            <h2 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B]">Cara Belanja</h2>
-            <p className="text-xs text-[#8E7188] font-bold mt-1">4 langkah mudah sampai akun aktif instan</p>
+      {/* ===== PAYMENT METHODS BANNER (Overlapping) ===== */}
+      <section className="w-full max-w-[1160px] mx-auto px-4 -mt-16 relative z-20">
+        <div className="bg-[#FDF6F8] rounded-2xl border-2 border-dashed border-[#DB8291] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 shadow-md">
+          <div className="flex items-center gap-3 md:w-1/4">
+            <i className="fa-solid fa-credit-card text-[#DB8291] text-xl"></i>
+            <h3 className="font-bold text-[#720002] text-sm">Mendukung Berbagai Pembayaran</h3>
           </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[{
-              title: 'Pilih Produk',
-              desc: 'Pilih produk digital favorit Anda.',
-              icon: 'fa-magnifying-glass',
-            }, {
-              title: 'Tambah Keranjang',
-              desc: 'Klik beli untuk masuk keranjang.',
-              icon: 'fa-cart-plus',
-            }, {
-              title: 'Pembayaran QRIS',
-              desc: 'Scan QRIS dari bank/e-wallet.',
-              icon: 'fa-qrcode',
-            }, {
-              title: 'Akun Dikirim',
-              desc: 'Otomatis dikirim via web & bot.',
-              icon: 'fa-paper-plane',
-            }].map((step, idx) => (
-              <div key={step.title} className="flex flex-col items-center text-center p-4 rounded-2xl bg-[#F7F2F6] border border-[#F0E2EB]">
-                <div className="w-10 h-10 rounded-2xl bg-[#CB96BA] text-white flex items-center justify-center text-lg mb-2 shadow-xs">
-                  <i className={`fa-solid ${step.icon}`}></i>
-                </div>
-                <span className="font-fredoka text-xs text-[#CB96BA] mb-1">Langkah {idx + 1}</span>
-                <h3 className="font-extrabold text-sm text-[#3E2D3B] mb-1">{step.title}</h3>
-                <p className="text-[11px] text-[#8E7188] leading-tight">{step.desc}</p>
+          
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
+                <i className="fa-solid fa-qrcode text-[#DB8291]"></i>
               </div>
+              <div>
+                <div className="font-bold text-xs text-[#720002]">QRIS</div>
+                <div className="text-[10px] text-[#9E6B72]">Scan via bank/e-wallet</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
+                <i className="fa-solid fa-wallet text-[#DB8291]"></i>
+              </div>
+              <div>
+                <div className="font-bold text-xs text-[#720002]">E-Wallet</div>
+                <div className="text-[10px] text-[#9E6B72]">Dana, OVO, Gopay, dll</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
+                <i className="fa-solid fa-building-columns text-[#DB8291]"></i>
+              </div>
+              <div>
+                <div className="font-bold text-xs text-[#720002]">Virtual Account</div>
+                <div className="text-[10px] text-[#9E6B72]">BCA, BRI, BNI, dll</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== PILIHAN PRODUK BERKUALITAS ===== */}
+      <section className="w-full bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] mt-16 py-16 shadow-md">
+        <div className="max-w-[1160px] mx-auto px-4 text-center">
+          <h2 className="font-fredoka text-3xl md:text-4xl text-white mb-10">
+            <span className="text-[#F4D6DC]">Pilihan Produk</span> Berkualitas untuk<br/>Kebutuhan Anda
+          </h2>
+
+          <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
+            {categories.slice(0, 8).map(cat => (
+              <button
+                key={cat}
+                onClick={() => { setSelectedCategory(cat); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }); }}
+                className="bg-[#FDF6F8] hover:bg-white text-[#720002] rounded-xl px-5 py-3 flex items-center gap-3 font-bold text-sm transition-colors shadow-sm"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#FBEEF1] text-[#DB8291] flex items-center justify-center shrink-0">
+                  <i className={`fa-solid ${getCategoryIcon(cat)} text-xs`}></i>
+                </div>
+                {cat}
+              </button>
+            ))}
+            {categories.length === 0 && (
+               <span className="text-white text-sm">Memuat Kategori...</span>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== SEMUA PRODUK GRID ===== */}
+      <section id="products" className="w-full bg-[#FDF6F8] py-16 scroll-mt-20">
+        <div className="max-w-[1160px] mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+             <h2 className="font-fredoka text-2xl text-[#720002]">Katalog <span className="text-[#DB8291]">Produk</span></h2>
+             
+             {/* Search input */}
+             <div className="relative w-full sm:w-72">
+               <input
+                 type="text"
+                 value={filterQuery}
+                 onChange={(e) => setFilterQuery(e.target.value)}
+                 placeholder="Cari aplikasi..."
+                 className="w-full pl-4 pr-10 py-2.5 rounded-full border border-[#F4D6DC] bg-white text-sm font-bold text-[#720002] focus:border-[#DB8291] outline-none"
+               />
+               <i className="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-[#DB8291] text-sm"></i>
+             </div>
+          </div>
+          
+          {error && (
+            <div className="mb-6 bg-[#FFE4E6] border border-[#BE123C]/20 text-[#BE123C] px-5 py-4 rounded-xl text-sm font-bold text-center">
+              Gagal memuat produk: {error}
+            </div>
+          )}
+
+          {/* Product Grid */}
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="bg-white rounded-xl h-60 animate-pulse border border-[#F4D6DC]"></div>
+              ))}
+            </div>
+          ) : filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {filteredProducts.map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : !error ? (
+            <div className="text-center py-16 text-[#9E6B72]">
+               Tidak ada produk yang cocok.
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* ===== SIAPA KAMI (White background) ===== */}
+      <section id="tentang" className="w-full bg-white py-20 border-t border-[#F4D6DC] scroll-mt-20">
+        <div className="max-w-[1160px] mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+          <div className="order-2 md:order-1 flex justify-center border-2 border-dashed border-[#F4D6DC] rounded-3xl p-6 bg-[#FBEEF1]">
+             <div className="w-64 h-64 bg-white rounded-full flex items-center justify-center text-[#DB8291] shadow-lg border-4 border-white">
+                <i className="fa-solid fa-face-smile-wink text-[6rem]"></i>
+             </div>
+          </div>
+          <div className="order-1 md:order-2">
+            <h2 className="font-fredoka text-3xl md:text-4xl text-[#720002] mb-4">
+              <span className="text-[#DB8291] border-b-2 border-[#DB8291]">Siapa Kami</span> dan Apa yang Kami Lakukan
+            </h2>
+            <p className="text-[#8A3A44] leading-relaxed text-sm md:text-base">
+              Peony Store berdiri sejak 2024, kami menyediakan berbagai macam aplikasi premium bergaransi yang nyaman dipakai ataupun dijual kembali. Dengan admin pendamping yang responsif dan ribuan pelanggan yang telah menjadi SAHABAT PEONY. Yuk bergabung!
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== TESTIMONIALS ===== */}
+      <section id="testimonials" className="w-full bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] py-20 shadow-inner">
+        <div className="max-w-[1160px] mx-auto px-4">
+          <h2 className="font-fredoka text-2xl md:text-3xl text-center text-white mb-12 max-w-2xl mx-auto">
+            <span className="text-[#F4D6DC]">Dengarkan cerita dari klien kami</span> yang mempercayai kami untuk kebutuhan mereka
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+               { title: 'LOVE', text: 'Prosesnya super cepat! Baru bayar QRIS langsung masuk ke email akunnya.', name: 'Alif Daniya Hisan' },
+               { title: 'mantap', text: 'Langganan Netflix di sini lancar banget, gak ada kendala sama sekali.', name: 'fi store' },
+               { title: 'Ailavyu cipaws sukses selalu muah :33333', text: 'Adminnya ramah dan responsif. Garansinya beneran jalan.', name: 'keesa cathyoura' },
+               { title: 'good', text: 'Harganya bersaing, fiturnya lengkap. Makasih Peony!', name: 'Pachi' },
+               { title: 'keren banget, satset sekali!', text: 'Satset banget transaksinya, the best pokoknya.', name: 'Sybila' }
+            ].map((t, idx) => (
+               <div key={idx} className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 relative border border-[#F4D6DC] shadow-md hover:-translate-y-1 transition-transform">
+                 <div className="text-[10px] uppercase font-black text-[#DB8291] mb-2">{t.title}</div>
+                 <p className="text-sm text-[#8A3A44] leading-relaxed mb-6 font-medium">{t.text}</p>
+                 <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-[#DB8291] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                     {t.name.charAt(0)}
+                   </div>
+                   <div>
+                     <div className="font-bold text-sm text-[#720002]">{t.name}</div>
+                     <div className="text-[10px] text-[#9E6B72]">Customer</div>
+                   </div>
+                 </div>
+                 <i className="fa-solid fa-quote-right absolute top-6 right-6 text-2xl text-[#F4D6DC]"></i>
+               </div>
             ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
+
+      {/* ===== FAQ ===== */}
+      <section id="faq" className="w-full bg-white py-20">
+        <div className="max-w-[700px] mx-auto px-4 text-center">
+           <h2 className="font-fredoka text-2xl md:text-3xl text-[#720002] mb-2">
+             <span className="text-[#DB8291] border-b-2 border-[#DB8291]">Pertanyaan Populer</span> tentang Layanan Kami
+           </h2>
+           <p className="text-[#9E6B72] text-sm mt-8 font-bold">
+             Belum ada pertanyaan tersedia.
+           </p>
+        </div>
+      </section>
+
+      {/* ===== BOTTOM CTA ===== */}
+      <section className="w-full bg-white pb-20">
+        <div className="max-w-[900px] mx-auto px-4">
+           <div className="bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] rounded-3xl p-10 md:p-12 text-center shadow-xl">
+             <h2 className="font-fredoka text-2xl md:text-4xl text-white mb-2">
+                <span className="text-[#F4D6DC]">Hubungi Kami</span> untuk Bantuan atau<br/>Informasi Lebih Lanjut
+             </h2>
+             <div className="flex justify-center gap-4 mt-8">
+               <a href="mailto:admin@peonystore.com" className="bg-white text-[#720002] font-extrabold text-sm px-8 py-3.5 rounded-full hover:bg-[#FBEEF1] transition-colors shadow-md">
+                 Email Kami
+               </a>
+               <a href="https://wa.me/6281234567890" target="_blank" rel="noreferrer" className="bg-white/15 border-2 border-white/40 text-white font-bold text-sm px-8 py-3.5 rounded-full hover:bg-white/25 transition-colors">
+                 WhatsApp
+               </a>
+             </div>
+           </div>
+        </div>
+      </section>
     </div>
   )
 }
@@ -383,9 +399,9 @@ function HomeInner() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="p-12 text-center text-[#8E7188]">
-        <div className="text-4xl animate-bounce mb-2">🌸</div>
-        <p className="font-fredoka text-lg">Memuat Rain Store...</p>
+      <div className="p-12 text-center text-[#9E6B72] w-full pt-32">
+        <div className="text-4xl animate-bounce mb-2 text-[#DB8291]"><i className="fa-solid fa-store"></i></div>
+        <p className="font-fredoka text-lg text-[#720002]">Memuat Peony Store...</p>
       </div>
     }>
       <HomeInner />

@@ -18,10 +18,6 @@ type OrderRow = {
   items: unknown
 }
 
-type ResellerOrderRow = OrderRow & {
-  komisi: number | string | null
-}
-
 type MarketOrderRow = OrderRow & {
   order_id: string | null
   order_source: string | null
@@ -37,8 +33,6 @@ type ChartData = {
   webStoreOrders: number
   marketRevenue: number
   marketOrders: number
-  resellerRevenue: number
-  resellerOrders: number
 }
 
 const PAID_STATUSES = new Set(['paid', 'completed', 'settlement', 'capture', 'success'])
@@ -168,28 +162,23 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServerClient()
 
-    const [{ count: productsCount, error: productsError }, { count: itemsCount, error: itemsError }, { count: usersCount, error: usersError }, { count: resellerCount, error: resellerError }, { count: sellerCountRaw, error: sellerError }] = await Promise.all([
+    const [{ count: productsCount, error: productsError }, { count: itemsCount, error: itemsError }, { count: usersCount, error: usersError }, { count: sellerCountRaw, error: sellerError }] = await Promise.all([
       supabase.from('products').select('*', { count: 'exact', head: true }),
       supabase.from('product_items').select('*', { count: 'exact', head: true }),
       supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('resellers').select('*', { count: 'exact', head: true }),
       supabase.from('sellers').select('id', { count: 'exact', head: true }),
     ])
 
     // `sellers` is an optional (marketplace) table; tolerate its absence.
     const sellerCount = isMissingTableError(sellerError) ? 0 : sellerCountRaw
-    const countError = productsError || itemsError || usersError || resellerError || (isMissingTableError(sellerError) ? null : sellerError)
+    const countError = productsError || itemsError || usersError || (isMissingTableError(sellerError) ? null : sellerError)
     if (countError) throw new Error(getErrorMessage(countError))
 
-    const [orders, resellerOrders, marketOrders] = await Promise.all([
+    const [orders, marketOrders] = await Promise.all([
       fetchAllRows<OrderRow>((from, to) => supabase
         .from('orders')
         .select('status, total_amount, created_at, customer_email, customer_phone, payment_method, items')
         .range(from, to) as unknown as PromiseLike<RowsResult<OrderRow>>),
-      fetchAllRows<ResellerOrderRow>((from, to) => supabase
-        .from('reseller_orders')
-        .select('status, total_amount, komisi, created_at')
-        .range(from, to) as unknown as PromiseLike<RowsResult<ResellerOrderRow>>),
       fetchAllRows<MarketOrderRow>((from, to) => supabase
         .from('market_orders')
         .select('order_id, status, total_amount, order_source, created_at')
@@ -197,7 +186,6 @@ export async function GET(request: NextRequest) {
     ])
 
     const paidOrders = orders.filter(isPaidOrder)
-    const paidResellerOrders = resellerOrders.filter(isPaidOrder)
     const paidMarketOrders = marketOrders.filter(isPaidOrder)
 
     const webStoreOrders = orders.filter(isWebStoreOrder)
@@ -213,26 +201,23 @@ export async function GET(request: NextRequest) {
     const pbsTotalRevenue = sumRevenue(paidPbsBotOrders)
     const webStoreRevenue = sumRevenue(paidWebStoreOrders)
     const mainStoreRevenue = pbsTotalRevenue + webStoreRevenue
-    const resellerRevenue = sumRevenue(paidResellerOrders)
     const marketStoreRevenue = sumRevenue(paidMarketStoreOrders)
     const botMarketRevenue = sumRevenue(paidBotMarketOrders)
     const marketRevenue = marketStoreRevenue + botMarketRevenue
-    const totalRevenue = pbsTotalRevenue + webStoreRevenue + resellerRevenue + marketRevenue
+    const totalRevenue = pbsTotalRevenue + webStoreRevenue + marketRevenue
 
     const currentMonth = jakartaDateKey(new Date()).slice(0, 7)
     const isThisMonth = (order: OrderRow) => Boolean(order.created_at && jakartaDateKey(order.created_at).startsWith(currentMonth))
     const revenueThisMonth =
       sumRevenue(paidPbsBotOrders.filter(isThisMonth)) +
       sumRevenue(paidWebStoreOrders.filter(isThisMonth)) +
-      sumRevenue(paidResellerOrders.filter(isThisMonth)) +
       sumRevenue(paidMarketOrders.filter(isThisMonth))
     const mainStoreRevenueThisMonth =
       sumRevenue(paidPbsBotOrders.filter(isThisMonth)) +
       sumRevenue(paidWebStoreOrders.filter(isThisMonth))
-    const resellerRevenueThisMonth = sumRevenue(paidResellerOrders.filter(isThisMonth))
     const marketRevenueThisMonth = sumRevenue(paidMarketOrders.filter(isThisMonth))
 
-    const totalPaidOrdersCount = paidOrders.length + paidResellerOrders.length + paidMarketOrders.length
+    const totalPaidOrdersCount = paidOrders.length + paidMarketOrders.length
     const avgOrderValue = totalPaidOrdersCount > 0 ? totalRevenue / totalPaidOrdersCount : 0
 
     const chartData: ChartData[] = []
@@ -247,25 +232,21 @@ export async function GET(request: NextRequest) {
       const dayPbsOrders = paidPbsBotOrders.filter(order => order.created_at && jakartaDateKey(order.created_at) === dateKey)
       const dayWebStoreOrders = paidWebStoreOrders.filter(order => order.created_at && jakartaDateKey(order.created_at) === dateKey)
       const dayMarketOrders = paidMarketOrders.filter(order => order.created_at && jakartaDateKey(order.created_at) === dateKey)
-      const dayResellerOrders = paidResellerOrders.filter(order => order.created_at && jakartaDateKey(order.created_at) === dateKey)
 
       const dayPbsRevenue = sumRevenue(dayPbsOrders)
       const dayWebStoreRevenue = sumRevenue(dayWebStoreOrders)
       const dayMarketRevenue = sumRevenue(dayMarketOrders)
-      const dayResellerRevenue = sumRevenue(dayResellerOrders)
 
       chartData.push({
         date: jakartaDateLabel(date),
-        orders: dayPbsOrders.length + dayWebStoreOrders.length + dayMarketOrders.length + dayResellerOrders.length,
-        revenue: dayPbsRevenue + dayWebStoreRevenue + dayMarketRevenue + dayResellerRevenue,
+        orders: dayPbsOrders.length + dayWebStoreOrders.length + dayMarketOrders.length,
+        revenue: dayPbsRevenue + dayWebStoreRevenue + dayMarketRevenue,
         pbsRevenue: dayPbsRevenue,
         pbsOrders: dayPbsOrders.length,
         webStoreRevenue: dayWebStoreRevenue,
         webStoreOrders: dayWebStoreOrders.length,
         marketRevenue: dayMarketRevenue,
         marketOrders: dayMarketOrders.length,
-        resellerRevenue: dayResellerRevenue,
-        resellerOrders: dayResellerOrders.length,
       })
     }
 
@@ -273,7 +254,7 @@ export async function GET(request: NextRequest) {
       stats: {
         totalProducts: productsCount || 0,
         totalItems: itemsCount || 0,
-        totalOrders: orders.length + resellerOrders.length + marketOrders.length,
+        totalOrders: orders.length + marketOrders.length,
         totalUsers: usersCount || 0,
         revenueThisMonth,
         totalRevenue,
@@ -281,10 +262,6 @@ export async function GET(request: NextRequest) {
         webStoreOrdersCount: orders.length,
         webStoreRevenue: mainStoreRevenue,
         webStoreRevenueThisMonth: mainStoreRevenueThisMonth,
-        resellerCount: resellerCount || 0,
-        resellerOrdersCount: resellerOrders.length,
-        resellerRevenue,
-        resellerRevenueThisMonth,
         sellerCount: sellerCount || 0,
         marketOrdersCount: marketOrders.length,
         marketRevenue,

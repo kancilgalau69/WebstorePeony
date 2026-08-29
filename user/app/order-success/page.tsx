@@ -211,6 +211,56 @@ function OrderSuccessInner() {
 
   const normalizeItemDataText = (text: string) => text.replace(/\s*\|\|\s*/g, '\n').trim()
 
+  // Build a clean, WhatsApp/Telegram-ready summary of the whole order:
+  // order details + every item's account data + product terms (S&K).
+  const buildFullOrderText = () => {
+    if (!orderDetails) return ''
+    const lines: string[] = []
+    lines.push('🌸 PEONY STORE — BUKTI PEMBELIAN')
+    lines.push('━━━━━━━━━━━━━━━━━━━━━')
+    lines.push(`🧾 Order ID : ${orderDetails.orderId}`)
+    if (orderDetails.customerName) lines.push(`👤 Nama     : ${orderDetails.customerName}`)
+    lines.push(`🗓️ Waktu    : ${formatDateTime(orderDetails.transactionTime)}`)
+    lines.push(`💰 Total    : ${formatPrice(orderDetails.amount)}`)
+    lines.push(`✅ Status   : ${isCompleted ? 'LUNAS / BERHASIL' : String(orderDetails.status || '').toUpperCase()}`)
+    lines.push('')
+
+    const items = orderDetails.items || []
+    items.forEach((item: any, idx: number) => {
+      const name = item.product_name || item.name || 'Produk'
+      lines.push('━━━━━━━━━━━━━━━━━━━━━')
+      lines.push(`📦 ${idx + 1}. ${name}`)
+      lines.push(`   Qty: ${item.quantity}x @ ${formatPrice(item.price)}  =  ${formatPrice((item.price || 0) * (item.quantity || 1))}`)
+
+      // Split into individual lines (handles both newlines and "||" separators),
+      // so every credential line stays neatly indented under the item.
+      const dataArr = item.item_data
+        ? String(item.item_data)
+            .split(/\r?\n|\s*\|\|\s*/)
+            .map((d: string) => d.trim())
+            .filter(Boolean)
+        : []
+      if (dataArr.length > 0) {
+        lines.push('')
+        lines.push('   🔑 Detail Akun / Kode:')
+        dataArr.forEach((d: string) => lines.push(`   • ${d}`))
+      }
+
+      const notes = splitNotes(item.product_notes)
+      if (notes.length > 0) {
+        lines.push('')
+        lines.push('   📌 Ketentuan (S&K):')
+        notes.forEach((n: string) => lines.push(`   - ${n}`))
+      }
+      lines.push('')
+    })
+
+    lines.push('━━━━━━━━━━━━━━━━━━━━━')
+    lines.push('🙏 Terima kasih telah berbelanja di Peony Store!')
+    lines.push('💬 Bantuan: chat admin via WhatsApp.')
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+  }
+
   const copyToClipboard = async (text: string) => {
     try {
       if (navigator?.clipboard?.writeText) {
@@ -224,7 +274,7 @@ function OrderSuccessInner() {
   const showCopyToast = (message: string) => {
     const toast = document.createElement('div')
     toast.textContent = message
-    toast.className = 'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#3E2D3B] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xl'
+    toast.className = 'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-[#720002] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xl'
     document.body.appendChild(toast)
     setTimeout(() => { toast.remove() }, 1500)
   }
@@ -234,7 +284,7 @@ function OrderSuccessInner() {
 
   if (loading) {
     return (
-      <div className="py-12 text-center text-[#8E7188]">
+      <div className="py-12 text-center text-[#9E6B72]">
         <div className="text-4xl animate-bounce mb-2">🌸</div>
         <p className="font-fredoka text-lg">Memuat Rincian Pesanan...</p>
       </div>
@@ -242,18 +292,18 @@ function OrderSuccessInner() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-6 animate-fadeIn space-y-6">
+    <div className="max-w-[1160px] mx-auto px-4 py-6 animate-fadeIn space-y-6">
       {/* Header Banner Card */}
-      <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-8 shadow-xs text-center space-y-3">
+      <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs text-center space-y-3">
         <div className="text-5xl mb-2">
           {isCompleted ? '💖' : isProcessing ? '⏳' : '🌸'}
         </div>
-        <h1 className="font-fredoka text-3xl text-[#3E2D3B]">
+        <h1 className="font-fredoka text-3xl text-[#720002]">
           {isCompleted ? 'Pembayaran Berhasil! 🌸' : isProcessing ? 'Memproses Pesanan...' : 'Menunggu Pembayaran'}
         </h1>
-        <p className="text-xs font-extrabold text-[#8E7188] max-w-md mx-auto">
+        <p className="text-xs font-extrabold text-[#9E6B72] max-w-md mx-auto">
           {isCompleted
-            ? 'Terima kasih telah berbelanja di Rain Store. Akun / item digital Anda siap digunakan di bawah!'
+            ? 'Terima kasih telah berbelanja di Peony Store. Akun / item digital Anda siap digunakan di bawah!'
             : 'Pembayaran diterima. Sedang mempersiapkan item digital Anda...'}
         </p>
 
@@ -269,24 +319,17 @@ function OrderSuccessInner() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Items Purchased Box */}
-            <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 shadow-xs space-y-4">
+            <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-fredoka text-xl text-[#3E2D3B]">Item Pembelian Anda 🌸</h2>
+                <h2 className="font-fredoka text-xl text-[#720002]">Item Pembelian Anda 🌸</h2>
                 
                 {orderDetails.items && orderDetails.items.some((i: any) => hasNonEmptyItemData(i.item_data)) && (
                   <button
                     onClick={async () => {
-                      let allItemsText = `=== RAIN STORE PEMBELIAN ===\nOrder ID: ${orderDetails.orderId}\n\n`
-                      orderDetails.items.forEach((item: any) => {
-                        if (hasNonEmptyItemData(item.item_data)) {
-                          allItemsText += `📦 ${item.product_name || item.name}\n`
-                          allItemsText += `${item.item_data}\n\n`
-                        }
-                      })
-                      const ok = await copyToClipboard(allItemsText)
-                      showCopyToast(ok ? 'Tersalin!' : 'Gagal menyalin')
+                      const ok = await copyToClipboard(buildFullOrderText())
+                      showCopyToast(ok ? 'Semua detail tersalin!' : 'Gagal menyalin')
                     }}
-                    className="px-3.5 py-1.5 rounded-full bg-[#F7F2F6] text-[#CB96BA] border border-[#F0E2EB] font-extrabold text-xs hover:bg-[#F0E2EB]"
+                    className="px-3.5 py-1.5 rounded-full bg-[#FBEEF1] text-[#DB8291] border border-[#F4D6DC] font-extrabold text-xs hover:bg-[#F4D6DC]"
                   >
                     Copy Semua ✦
                   </button>
@@ -302,28 +345,28 @@ function OrderSuccessInner() {
                     const notesList = splitNotes(item.product_notes)
 
                     return (
-                      <div key={index} className="bg-[#F7F2F6] rounded-2xl border-2 border-[#F0E2EB] p-5 space-y-3">
+                      <div key={index} className="bg-[#FBEEF1] rounded-2xl border-2 border-[#F4D6DC] p-5 space-y-3">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h3 className="font-fredoka text-lg text-[#3E2D3B]">{item.product_name || item.name}</h3>
-                            <p className="text-xs text-[#8E7188] font-bold">Qty: {item.quantity}x @ {formatPrice(item.price)}</p>
+                            <h3 className="font-fredoka text-lg text-[#720002]">{item.product_name || item.name}</h3>
+                            <p className="text-xs text-[#9E6B72] font-bold">Qty: {item.quantity}x @ {formatPrice(item.price)}</p>
                           </div>
-                          <span className="font-fredoka text-lg text-[#CB96BA]">{formatPrice(item.price * item.quantity)}</span>
+                          <span className="font-fredoka text-lg text-[#DB8291]">{formatPrice(item.price * item.quantity)}</span>
                         </div>
 
                         {/* Item Accounts Data */}
                         {itemDataArray.length > 0 ? (
-                          <div className="space-y-2 pt-2 border-t border-[#F0E2EB]">
-                            <p className="text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider">Detail Akun / Kode Produk:</p>
+                          <div className="space-y-2 pt-2 border-t border-[#F4D6DC]">
+                            <p className="text-xs font-extrabold text-[#720002] uppercase tracking-wider">Detail Akun / Kode Produk:</p>
                             {itemDataArray.map((data: string, dataIdx: number) => (
-                              <div key={dataIdx} className="bg-white border-2 border-[#F0E2EB] rounded-xl p-3 flex items-center justify-between gap-2">
-                                <span className="font-mono text-xs font-bold text-[#3E2D3B] break-all">{data}</span>
+                              <div key={dataIdx} className="bg-white border-2 border-[#F4D6DC] rounded-xl p-3 flex items-center justify-between gap-2">
+                                <span className="font-mono text-xs font-bold text-[#720002] break-all">{data}</span>
                                 <button
                                   onClick={async () => {
                                     const ok = await copyToClipboard(data)
                                     showCopyToast(ok ? 'Tersalin!' : 'Gagal menyalin')
                                   }}
-                                  className="px-3 py-1 rounded-lg bg-[#F7F2F6] text-[#CB96BA] font-extrabold text-[10px] shrink-0 hover:bg-[#F0E2EB]"
+                                  className="px-3 py-1 rounded-lg bg-[#FBEEF1] text-[#DB8291] font-extrabold text-[10px] shrink-0 hover:bg-[#F4D6DC]"
                                 >
                                   Copy
                                 </button>
@@ -331,15 +374,15 @@ function OrderSuccessInner() {
                             ))}
                           </div>
                         ) : (
-                          <div className="p-3 bg-white rounded-xl text-xs text-[#8E7188] font-bold">
+                          <div className="p-3 bg-white rounded-xl text-xs text-[#9E6B72] font-bold">
                             Data akun sedang disiapkan sistem...
                           </div>
                         )}
 
                         {notesList.length > 0 && (
-                          <div className="pt-2 border-t border-[#F0E2EB]">
-                            <p className="text-xs font-extrabold text-[#3E2D3B]">Ketentuan Produk:</p>
-                            <ul className="text-xs text-[#8E7188] list-disc list-inside mt-1 space-y-0.5">
+                          <div className="pt-2 border-t border-[#F4D6DC]">
+                            <p className="text-xs font-extrabold text-[#720002]">Ketentuan Produk:</p>
+                            <ul className="text-xs text-[#9E6B72] list-disc list-inside mt-1 space-y-0.5">
                               {notesList.map((n: string, i: number) => (
                                 <li key={i}>{n}</li>
                               ))}
@@ -356,25 +399,25 @@ function OrderSuccessInner() {
 
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-4">
-            <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 shadow-xs space-y-3 text-xs font-bold text-[#8E7188]">
-              <h3 className="font-fredoka text-lg text-[#3E2D3B] mb-2">Detail Transaksi</h3>
+            <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 shadow-xs space-y-3 text-xs font-bold text-[#9E6B72]">
+              <h3 className="font-fredoka text-lg text-[#720002] mb-2">Detail Transaksi</h3>
               <div className="flex justify-between">
                 <span>Order ID:</span>
-                <span className="font-mono text-[#3E2D3B]">{orderDetails.orderId}</span>
+                <span className="font-mono text-[#720002]">{orderDetails.orderId}</span>
               </div>
               <div className="flex justify-between">
                 <span>Waktu:</span>
-                <span className="text-[#3E2D3B]">{formatDateTime(orderDetails.transactionTime)}</span>
+                <span className="text-[#720002]">{formatDateTime(orderDetails.transactionTime)}</span>
               </div>
-              <div className="flex justify-between border-t-2 border-[#F0E2EB] pt-3 font-fredoka text-base">
-                <span className="text-[#3E2D3B]">Total:</span>
-                <span className="text-[#CB96BA]">{formatPrice(orderDetails.amount)}</span>
+              <div className="flex justify-between border-t-2 border-[#F4D6DC] pt-3 font-fredoka text-base">
+                <span className="text-[#720002]">Total:</span>
+                <span className="text-[#DB8291]">{formatPrice(orderDetails.amount)}</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 shadow-xs space-y-3">
-              <h3 className="font-fredoka text-lg text-[#3E2D3B]">Butuh Bantuan?</h3>
-              <p className="text-xs text-[#8E7188] font-bold">Tim CS Rain Store siap membantu 24/7 via WhatsApp.</p>
+            <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 shadow-xs space-y-3">
+              <h3 className="font-fredoka text-lg text-[#720002]">Butuh Bantuan?</h3>
+              <p className="text-xs text-[#9E6B72] font-bold">Tim CS Peony Store siap membantu 24/7 via WhatsApp.</p>
               <a
                 href={`https://wa.me/6282340915319?text=Halo%20Admin%20Rain%20Store,%20saya%20butuh%20bantuan%20untuk%20Order%20ID%20${orderDetails.orderId}`}
                 target="_blank"
@@ -385,7 +428,7 @@ function OrderSuccessInner() {
               </a>
               <Link
                 href="/"
-                className="block text-center text-xs font-extrabold text-[#CB96BA] pt-2 hover:underline"
+                className="block text-center text-xs font-extrabold text-[#DB8291] pt-2 hover:underline"
               >
                 ← Kembali ke Shop
               </Link>
@@ -400,7 +443,7 @@ function OrderSuccessInner() {
 export default function OrderSuccessPage() {
   return (
     <Suspense fallback={
-      <div className="p-12 text-center text-[#8E7188]">
+      <div className="p-12 text-center text-[#9E6B72]">
         <div className="text-4xl animate-bounce mb-2">🌸</div>
         <p className="font-fredoka text-lg">Memuat Rincian Transaksi...</p>
       </div>

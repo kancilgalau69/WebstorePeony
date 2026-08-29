@@ -17,11 +17,6 @@ interface Stats {
   webStoreOrdersCount: number
   webStoreRevenue: number
   webStoreRevenueThisMonth: number
-  // Reseller data
-  resellerCount: number
-  resellerOrdersCount: number
-  resellerRevenue: number
-  resellerRevenueThisMonth: number
   // Web Market data
   sellerCount: number
   marketOrdersCount: number
@@ -43,8 +38,6 @@ interface ChartData {
   webStoreOrders: number
   marketRevenue: number
   marketOrders: number
-  resellerRevenue: number
-  resellerOrders: number
 }
 
 interface TooltipPayload {
@@ -72,7 +65,6 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
             <p>PBS Bot: Rp {data.pbsRevenue.toLocaleString('id-ID')}</p>
             <p>Web Store: Rp {data.webStoreRevenue.toLocaleString('id-ID')}</p>
             <p>Web Market: Rp {data.marketRevenue.toLocaleString('id-ID')}</p>
-            <p>Reseller: Rp {data.resellerRevenue.toLocaleString('id-ID')}</p>
           </div>
         </div>
         
@@ -84,7 +76,6 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
             <p>PBS Bot: {data.pbsOrders} orders</p>
             <p>Web Store: {data.webStoreOrders} orders</p>
             <p>Web Market: {data.marketOrders} orders</p>
-            <p>Reseller: {data.resellerOrders} orders</p>
           </div>
         </div>
       </div>
@@ -105,10 +96,6 @@ export default function DashboardPage() {
     webStoreOrdersCount: 0,
     webStoreRevenue: 0,
     webStoreRevenueThisMonth: 0,
-    resellerCount: 0,
-    resellerOrdersCount: 0,
-    resellerRevenue: 0,
-    resellerRevenueThisMonth: 0,
     sellerCount: 0,
     marketOrdersCount: 0,
     marketRevenue: 0,
@@ -152,8 +139,6 @@ export default function DashboardPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_items' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchStats())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'resellers' }, () => fetchStats())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reseller_orders' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sellers' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'market_orders' }, () => fetchStats())
       .subscribe()
@@ -270,38 +255,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Reseller & Web Market Stats - 2 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        {/* Reseller Stats Card */}
-        <div className="bg-white rounded-lg shadow p-4 md:p-6 border-t-4 border-orange-500 hover:shadow-lg transition">
-          <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <FiUsers className="text-orange-500" />
-            Reseller System Overview
-          </h3>
-          <div className="grid grid-cols-2 gap-2 md:gap-4">
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <p className="text-gray-500 text-xs md:text-sm font-medium">Total Resellers</p>
-              <p className="text-lg md:text-2xl font-bold text-gray-900 mt-1">{stats.resellerCount}</p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <p className="text-gray-500 text-xs md:text-sm font-medium">Total Orders</p>
-              <p className="text-lg md:text-2xl font-bold text-gray-900 mt-1">{stats.resellerOrdersCount}</p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <p className="text-gray-500 text-xs md:text-sm font-medium">Revenue</p>
-              <p className="text-sm md:text-lg lg:text-xl font-bold text-gray-900 mt-1 truncate" title={`Rp ${stats.resellerRevenue.toLocaleString('id-ID')}`}>
-                Rp {stats.resellerRevenue.toLocaleString('id-ID')}
-              </p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <p className="text-gray-500 text-xs md:text-sm font-medium">This Month</p>
-              <p className="text-sm md:text-lg lg:text-xl font-bold text-gray-900 mt-1 truncate" title={`Rp ${stats.resellerRevenueThisMonth.toLocaleString('id-ID')}`}>
-                Rp {stats.resellerRevenueThisMonth.toLocaleString('id-ID')}
-              </p>
-            </div>
-          </div>
-        </div>
-
+      {/* Web Market Stats */}
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
         {/* Web Market Stats Card */}
         <div className="bg-white rounded-lg shadow p-4 md:p-6 border-t-4 border-teal-500 hover:shadow-lg transition">
           <h3 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">

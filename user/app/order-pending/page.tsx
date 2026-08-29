@@ -269,29 +269,29 @@ function OrderPendingInner() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-6 animate-fadeIn">
+    <div className="max-w-[1160px] mx-auto px-4 py-6 animate-fadeIn">
       {qrCodeUrl ? (
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 md:p-8 shadow-xs text-center space-y-6">
-          <h1 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B]">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 md:p-8 shadow-xs text-center space-y-6">
+          <h1 className="font-fredoka text-2xl md:text-3xl text-[#720002]">
             Pembayaran QRIS 🌸
           </h1>
           
           {/* Countdown */}
-          <div className="bg-[#F7F2F6] border-2 border-[#F0E2EB] rounded-2xl p-4 text-center">
-            <p className="text-xs font-extrabold text-[#8E7188] uppercase tracking-wider mb-1">
+          <div className="bg-[#FBEEF1] border-2 border-[#F4D6DC] rounded-2xl p-4 text-center">
+            <p className="text-xs font-extrabold text-[#9E6B72] uppercase tracking-wider mb-1">
               Waktu Tersisa Pembayaran
             </p>
-            <p className="font-fredoka text-4xl text-[#CB96BA]">
+            <p className="font-fredoka text-4xl text-[#DB8291]">
               {formatTime(timeLeft)}
             </p>
-            <p className="text-[11px] text-[#8E7188] font-bold mt-1">
+            <p className="text-[11px] text-[#9E6B72] font-bold mt-1">
               QR Code berlaku 15 menit
             </p>
           </div>
 
           {/* QR Code Container */}
-          <div className="bg-[#F7F2F6] border-2 border-[#F0E2EB] rounded-2xl p-6 inline-block mx-auto">
-            <p className="text-xs font-extrabold text-[#3E2D3B] mb-3">Scan QR Code dengan GoPay, OVO, Dana, ShopeePay, BCA, dll.</p>
+          <div className="bg-[#FBEEF1] border-2 border-[#F4D6DC] rounded-2xl p-6 inline-block mx-auto">
+            <p className="text-xs font-extrabold text-[#720002] mb-3">Scan QR Code dengan GoPay, OVO, Dana, ShopeePay, BCA, dll.</p>
             <img 
               src={qrCodeUrl} 
               alt="QRIS QR Code" 
@@ -301,25 +301,25 @@ function OrderPendingInner() {
 
           {/* Total Payment */}
           {amount && (
-            <div className="bg-[#FBF3F8] border-2 border-[#F0E2EB] rounded-2xl p-4 space-y-1.5">
+            <div className="bg-[#FBF3F8] border-2 border-[#F4D6DC] rounded-2xl p-4 space-y-1.5">
               {subtotal && adminFee && Number(adminFee) > 0 && (
                 <>
-                  <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                  <div className="flex justify-between text-xs font-bold text-[#9E6B72]">
                     <span>Subtotal</span>
-                    <span className="text-[#3E2D3B]">{formatPrice(Number(subtotal))}</span>
+                    <span className="text-[#720002]">{formatPrice(Number(subtotal))}</span>
                   </div>
-                  <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                  <div className="flex justify-between text-xs font-bold text-[#9E6B72]">
                     <span>Biaya Admin (kode unik)</span>
-                    <span className="text-[#3E2D3B]">{formatPrice(Number(adminFee))}</span>
+                    <span className="text-[#720002]">{formatPrice(Number(adminFee))}</span>
                   </div>
                 </>
               )}
-              <div className="flex justify-between items-center pt-1 border-t border-[#F0E2EB]">
-                <span className="text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider">Total Pembayaran</span>
-                <span className="font-fredoka text-2xl text-[#CB96BA]">{formatPrice(Number(amount))}</span>
+              <div className="flex justify-between items-center pt-1 border-t border-[#F4D6DC]">
+                <span className="text-xs font-extrabold text-[#720002] uppercase tracking-wider">Total Pembayaran</span>
+                <span className="font-fredoka text-2xl text-[#DB8291]">{formatPrice(Number(amount))}</span>
               </div>
               {adminFee && Number(adminFee) > 0 && (
-                <p className="text-[10px] text-[#8E7188] font-bold pt-1">
+                <p className="text-[10px] text-[#9E6B72] font-bold pt-1">
                   ⚠️ Bayar tepat sesuai nominal di atas (termasuk kode unik) agar pembayaran terverifikasi otomatis.
                 </p>
               )}
@@ -327,10 +327,10 @@ function OrderPendingInner() {
           )}
 
           {/* Order ID Info */}
-          <div className="bg-[#F7F2F6] rounded-2xl p-3 text-xs font-bold text-[#8E7188] space-y-1">
+          <div className="bg-[#FBEEF1] rounded-2xl p-3 text-xs font-bold text-[#9E6B72] space-y-1">
             <div className="flex justify-between">
               <span>Order ID:</span>
-              <span className="font-mono text-[#3E2D3B]">{orderId}</span>
+              <span className="font-mono text-[#720002]">{orderId}</span>
             </div>
           </div>
 
@@ -347,7 +347,7 @@ function OrderPendingInner() {
             <div className="flex gap-2">
               <button
                 onClick={downloadQRCode}
-                className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#F0E2EB] bg-white font-extrabold text-xs text-[#3E2D3B] hover:border-[#CB96BA]"
+                className="flex-1 py-2.5 px-4 rounded-xl border-2 border-[#F4D6DC] bg-white font-extrabold text-xs text-[#720002] hover:border-[#DB8291]"
               >
                 <i className="fa-solid fa-download"></i> Download QRIS
               </button>
@@ -362,17 +362,17 @@ function OrderPendingInner() {
             
             <Link
               href="/"
-              className="block text-center text-xs font-extrabold text-[#CB96BA] pt-2 hover:underline"
+              className="block text-center text-xs font-extrabold text-[#DB8291] pt-2 hover:underline"
             >
               ← Kembali ke Shop
             </Link>
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-8 shadow-xs text-center space-y-4 max-w-md mx-auto">
-          <div className="text-5xl text-[#CB96BA] mb-2">⏳</div>
-          <h1 className="font-fredoka text-2xl text-[#3E2D3B]">Menunggu Pembayaran</h1>
-          <p className="text-xs text-[#8E7188]">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs text-center space-y-4 max-w-md mx-auto">
+          <div className="text-5xl text-[#DB8291] mb-2">⏳</div>
+          <h1 className="font-fredoka text-2xl text-[#720002]">Menunggu Pembayaran</h1>
+          <p className="text-xs text-[#9E6B72]">
             Pesanan Anda ({orderId}) sedang menunggu pembayaran.
           </p>
           <button
@@ -391,7 +391,7 @@ function OrderPendingInner() {
 export default function OrderPendingPage() {
   return (
     <Suspense fallback={
-      <div className="p-12 text-center text-[#8E7188]">
+      <div className="p-12 text-center text-[#9E6B72]">
         <div className="text-4xl animate-bounce mb-2">🌸</div>
         <p className="font-fredoka text-lg">Memuat Status Pesanan...</p>
       </div>

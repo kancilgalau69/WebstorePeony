@@ -69,21 +69,21 @@ function OrderFailedInner() {
 
   return (
     <div className="max-w-md mx-auto py-8 animate-fadeIn">
-      <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-8 shadow-xs text-center space-y-4">
+      <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs text-center space-y-4">
         <div className="text-5xl text-[#BE123C] mb-1">❌</div>
 
         <h1 className="font-fredoka text-2xl text-[#BE123C]">
           {getReasonText()}
         </h1>
 
-        <p className="text-xs text-[#8E7188] font-bold">
+        <p className="text-xs text-[#9E6B72] font-bold">
           {getReasonDescription()}
         </p>
 
         {orderId && (
-          <div className="bg-[#F7F2F6] rounded-2xl p-3 text-xs font-bold text-[#8E7188]">
+          <div className="bg-[#FBEEF1] rounded-2xl p-3 text-xs font-bold text-[#9E6B72]">
             <span>Order ID: </span>
-            <span className="font-mono text-[#3E2D3B]">{orderId}</span>
+            <span className="font-mono text-[#720002]">{orderId}</span>
           </div>
         )}
 
@@ -103,13 +103,13 @@ function OrderFailedInner() {
 
           <Link
             href="/cart"
-            className="block w-full py-2.5 rounded-xl border-2 border-[#F0E2EB] text-[#3E2D3B] font-extrabold text-xs"
+            className="block w-full py-2.5 rounded-xl border-2 border-[#F4D6DC] text-[#720002] font-extrabold text-xs"
           >
             Lihat Keranjang
           </Link>
           <Link
             href="/"
-            className="block text-center text-xs font-extrabold text-[#CB96BA] pt-1 hover:underline"
+            className="block text-center text-xs font-extrabold text-[#DB8291] pt-1 hover:underline"
           >
             ← Kembali ke Shop
           </Link>
@@ -122,7 +122,7 @@ function OrderFailedInner() {
 export default function OrderFailedPage() {
   return (
     <Suspense fallback={
-      <div className="p-12 text-center text-[#8E7188]">
+      <div className="p-12 text-center text-[#9E6B72]">
         <div className="text-4xl animate-bounce mb-2">🌸</div>
         <p className="font-fredoka text-lg">Memuat Status...</p>
       </div>

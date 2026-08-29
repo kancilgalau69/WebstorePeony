@@ -709,29 +709,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (orderId && orderId.startsWith('RS-')) {
-      const targetUrl = process.env.RESELLER_STORE_WEBHOOK_URL || 'http://localhost:3003/api/webhook'
-      logInfo('WEBHOOK', 'Forwarding reseller order webhook', { orderId, targetUrl })
-      try {
-        const response = await fetch(targetUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        })
-        const resBody = await response.json()
-        return NextResponse.json(resBody, { status: response.status })
-      } catch (err: any) {
-        logError('WEBHOOK', 'Failed to forward reseller order webhook', {
-          orderId,
-          targetUrl,
-          error: err.message,
-        })
-        return NextResponse.json({ error: 'Failed to forward webhook to reseller store' }, { status: 500 })
-      }
-    }
-
     logInfo('WEBHOOK', 'Notification received', {
       orderId: orderId,
       bodyPreview: JSON.stringify(body).slice(0, 200)
@@ -948,24 +925,39 @@ export async function POST(request: NextRequest) {
               if (!orderData) {
                 logError('WEBHOOK', 'Order UUID lookup failed for order_items update', { orderId })
               } else {
+                const snapshotItems = orderData.items || []
                 for (const finalizedItem of finalizeResult.items) {
                   try {
-                    // Find matching product from order.items snapshot
-                    const orderItem = orderData.items?.find(
+                    // Find matching product from order.items snapshot BY CODE, with a
+                    // tolerant fallback: a stale product_code (renamed product) should
+                    // never drop the delivered item. For a single-product order, or when
+                    // there's no code match, attribute it to the (first) snapshot item.
+                    let orderItem = snapshotItems.find(
                       (i: any) => i.product_code === finalizedItem.product_code
                     )
-
+                    if (!orderItem && snapshotItems.length > 0) {
+                      orderItem = snapshotItems[0]
+                      logWarn('WEBHOOK', 'Finalized code not in snapshot; using fallback snapshot item', {
+                        orderId,
+                        finalizedCode: finalizedItem.product_code,
+                        fallbackCode: orderItem.product_code,
+                      })
+                    }
                     if (!orderItem) {
-                      logWarn('WEBHOOK', 'Snapshot item missing for finalized product', {
+                      logWarn('WEBHOOK', 'No snapshot item at all for finalized product', {
                         orderId,
                         productCode: finalizedItem.product_code,
                       })
                       continue
                     }
 
+                    // Store using the SNAPSHOT (ordered) product code so the order-details
+                    // page can match it, regardless of the item's stale code.
+                    const storeCode = orderItem.product_code
+
                     logInfo('WEBHOOK', 'Saving finalized item to order_items', {
                       orderId,
-                      productCode: finalizedItem.product_code,
+                      productCode: storeCode,
                       itemDataLength: String(finalizedItem.item_data || '').length,
                     })
 
@@ -975,14 +967,14 @@ export async function POST(request: NextRequest) {
                       .delete()
                       .eq('order_id', orderData.id)
                       .is('item_data', null)
-                      .eq('product_code', finalizedItem.product_code)
+                      .eq('product_code', storeCode)
 
                     const { error: insertError } = await supabase
                       .from('order_items')
                       .insert({
                         order_id: orderData.id,  // UUID
                         product_id: orderItem.product_id || null,  // products table UUID
-                        product_code: finalizedItem.product_code,
+                        product_code: storeCode,
                         product_name: orderItem.product_name || '',
                         quantity: 1,
                         price: orderItem.price || 0,

@@ -1,7 +1,7 @@
 {
   "name": "pbs-project",
   "version": "2.0.0",
-  "description": "PBS Digital Store - Telegram Bot, Admin Dashboard, User Web Store, Reseller Dashboard, Web Reseller & Web Blog",
+  "description": "PBS Digital Store - Telegram Bot, Admin Dashboard, User Web Store & Web Blog",
   "type": "module",
   "private": true,
   "scripts": {
@@ -9,22 +9,16 @@
     "start:bot": "node start-all.js bot",
     "start:dashboard": "node start-all.js dashboard",
     "start:store": "node start-all.js store",
-    "start:reseller-dashboard": "node start-all.js reseller-dashboard",
-    "start:web-reseller": "node start-all.js web-reseller",
     "start:web-blog": "node start-all.js web-blog",
     "bot": "npm start --prefix bot-telegram",
     "dashboard": "npm run dev --prefix dashboard",
     "store": "npm run dev --prefix user",
-    "reseller-dashboard": "npm run dev --prefix reseller-dashboard",
-    "web-reseller": "npm run dev --prefix web-reseller",
     "web-blog": "npm run dev --prefix web-blog",
     "build:dashboard": "cd dashboard && npm install && npm run build",
     "build:store": "cd user && npm install && npm run build",
     "build:bot": "cd bot-telegram && npm install",
-    "build:reseller-dashboard": "cd reseller-dashboard && npm install && npm run build",
-    "build:web-reseller": "cd web-reseller && npm install && npm run build",
     "build:web-blog": "cd web-blog && npm install && npm run build",
-    "install:all": "cd bot-telegram && npm install && cd ../dashboard && npm install && cd ../user && npm install && cd ../reseller-dashboard && npm install && cd ../web-reseller && npm install && cd ../web-blog && npm install"
+    "install:all": "cd bot-telegram && npm install && cd ../dashboard && npm install && cd ../user && npm install && cd ../web-blog && npm install"
   },
   "keywords": [
     "telegram",

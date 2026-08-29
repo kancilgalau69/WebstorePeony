@@ -133,11 +133,11 @@ export default function ProductDetail() {
       timer: 1500,
       showConfirmButton: false,
       background: '#ffffff',
-      color: '#3E2D3B',
+      color: '#720002',
       customClass: {
-        popup: 'rounded-2xl border border-[#F0E2EB] shadow-xl',
-        title: 'text-[#3E2D3B] font-bold font-fredoka',
-        htmlContainer: 'text-[#8E7188]',
+        popup: 'rounded-2xl border border-[#F4D6DC] shadow-xl',
+        title: 'text-[#720002] font-bold font-fredoka',
+        htmlContainer: 'text-[#9E6B72]',
       },
     })
   }
@@ -179,11 +179,11 @@ export default function ProductDetail() {
       timer: 1500,
       showConfirmButton: false,
       background: '#ffffff',
-      color: '#3E2D3B',
+      color: '#720002',
       customClass: {
-        popup: 'rounded-2xl border border-[#F0E2EB] shadow-xl',
-        title: 'text-[#3E2D3B] font-bold font-fredoka',
-        htmlContainer: 'text-[#8E7188]',
+        popup: 'rounded-2xl border border-[#F4D6DC] shadow-xl',
+        title: 'text-[#720002] font-bold font-fredoka',
+        htmlContainer: 'text-[#9E6B72]',
       },
     })
   }
@@ -216,8 +216,8 @@ export default function ProductDetail() {
         <div className="animate-pulse space-y-6">
           <div className="h-4 bg-gray-200 rounded w-48"></div>
           <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-3xl h-96 border-2 border-[#F0E2EB]"></div>
-            <div className="bg-white rounded-3xl p-6 border-2 border-[#F0E2EB] space-y-4">
+            <div className="bg-white rounded-3xl h-96 border-2 border-[#F4D6DC]"></div>
+            <div className="bg-white rounded-3xl p-6 border-2 border-[#F4D6DC] space-y-4">
               <div className="h-6 bg-gray-200 rounded w-24"></div>
               <div className="h-8 bg-gray-200 rounded w-3/4"></div>
               <div className="h-10 bg-gray-200 rounded w-1/3"></div>
@@ -231,10 +231,10 @@ export default function ProductDetail() {
   if (!product) {
     return (
       <div className="py-16 text-center">
-        <div className="bg-white rounded-3xl p-10 border-2 border-[#F0E2EB] max-w-md mx-auto shadow-sm">
-          <div className="text-5xl text-[#CB96BA] mb-3">🌸</div>
-          <h1 className="font-fredoka text-2xl text-[#3E2D3B] mb-2">Produk Tidak Ditemukan</h1>
-          <p className="text-[#8E7188] text-xs mb-6">Produk mungkin sudah tidak tersedia atau link salah.</p>
+        <div className="bg-white rounded-3xl p-10 border-2 border-[#F4D6DC] max-w-md mx-auto shadow-sm">
+          <div className="text-5xl text-[#DB8291] mb-3">🌸</div>
+          <h1 className="font-fredoka text-2xl text-[#720002] mb-2">Produk Tidak Ditemukan</h1>
+          <p className="text-[#9E6B72] text-xs mb-6">Produk mungkin sudah tidak tersedia atau link salah.</p>
           <button
             onClick={() => router.push('/')}
             className="btn-card-buy max-w-xs mx-auto"
@@ -251,29 +251,29 @@ export default function ProductDetail() {
   const formattedCategory = formatCategoryName(product.kategori)
 
   return (
-    <div className="space-y-6 animate-fadeIn py-2">
+    <div className="max-w-[1160px] mx-auto px-4 space-y-6 animate-fadeIn py-2">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-xs font-bold text-[#8E7188] overflow-x-auto scrollbar-none">
-        <Link href="/" className="hover:text-[#CB96BA] transition-colors whitespace-nowrap">
+      <nav className="flex items-center gap-2 text-xs font-bold text-[#9E6B72] overflow-x-auto scrollbar-none">
+        <Link href="/" className="hover:text-[#DB8291] transition-colors whitespace-nowrap">
           <i className="fa-solid fa-house mr-1"></i> Shop
         </Link>
         {formattedCategory && (
           <>
-            <i className="fa-solid fa-chevron-right text-[9px] text-[#B0B3D6]"></i>
-            <Link href={`/?category=${formattedCategory}`} className="hover:text-[#CB96BA] transition-colors whitespace-nowrap">
+            <i className="fa-solid fa-chevron-right text-[9px] text-[#E7A6B1]"></i>
+            <Link href={`/?category=${formattedCategory}`} className="hover:text-[#DB8291] transition-colors whitespace-nowrap">
               {formattedCategory}
             </Link>
           </>
         )}
-        <i className="fa-solid fa-chevron-right text-[9px] text-[#B0B3D6]"></i>
-        <span className="text-[#3E2D3B] truncate">{product.nama}</span>
+        <i className="fa-solid fa-chevron-right text-[9px] text-[#E7A6B1]"></i>
+        <span className="text-[#720002] truncate">{product.nama}</span>
       </nav>
 
       {/* Product Detail Main Card */}
       <div className="grid md:grid-cols-2 gap-6">
         {/* Product Image Frame */}
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-8 flex items-center justify-center relative shadow-xs">
-          <div className="w-full max-w-[280px] aspect-square rounded-2xl bg-[#F7F2F6] border-2 border-[#F0E2EB] p-4 flex items-center justify-center">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 flex items-center justify-center relative shadow-xs">
+          <div className="w-full max-w-[280px] aspect-square rounded-2xl bg-[#FBEEF1] border-2 border-[#F4D6DC] p-4 flex items-center justify-center">
             {product.ikon && !imgError ? (
               <Image
                 src={product.ikon}
@@ -285,7 +285,7 @@ export default function ProductDetail() {
                 unoptimized
               />
             ) : (
-              <i className="fa-solid fa-box-archive text-8xl text-[#CB96BA]"></i>
+              <i className="fa-solid fa-box-archive text-8xl text-[#DB8291]"></i>
             )}
           </div>
 
@@ -304,7 +304,7 @@ export default function ProductDetail() {
 
           <button
             onClick={() => myAffiliateCode ? setShareMenuOpen(true) : handleShare('plain')}
-            className="absolute top-4 right-4 w-10 h-10 rounded-2xl bg-[#F7F2F6] border border-[#F0E2EB] flex items-center justify-center text-[#8E7188] hover:text-[#CB96BA] transition-all"
+            className="absolute top-4 right-4 w-10 h-10 rounded-2xl bg-[#FBEEF1] border border-[#F4D6DC] flex items-center justify-center text-[#9E6B72] hover:text-[#DB8291] transition-all"
             title="Bagikan produk"
           >
             <i className="fa-solid fa-share-nodes"></i>
@@ -312,32 +312,32 @@ export default function ProductDetail() {
         </div>
 
         {/* Product Info */}
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 flex flex-col justify-between shadow-xs">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 flex flex-col justify-between shadow-xs">
           <div>
             {formattedCategory && (
-              <span className="inline-block px-3 py-1 rounded-full bg-[#F7F2F6] text-[#CB96BA] font-extrabold text-xs mb-2">
+              <span className="inline-block px-3 py-1 rounded-full bg-[#FBEEF1] text-[#DB8291] font-extrabold text-xs mb-2">
                 {formattedCategory}
               </span>
             )}
 
-            <h1 className="font-fredoka text-2xl md:text-3xl text-[#3E2D3B] leading-tight mb-2">
+            <h1 className="font-fredoka text-2xl md:text-3xl text-[#720002] leading-tight mb-2">
               {product.nama}
             </h1>
 
-            <div className="flex items-center gap-3 mb-4 text-xs font-bold text-[#8E7188]">
-              <span className="text-[#CB96BA]">★ {rating}</span>
+            <div className="flex items-center gap-3 mb-4 text-xs font-bold text-[#9E6B72]">
+              <span className="text-[#DB8291]">★ {rating}</span>
               <span>|</span>
               <span>{soldCount} Terjual</span>
             </div>
 
             {/* Price Frame */}
-            <div className="bg-gradient-to-r from-[#F7F2F6] to-[#F0E2EB] rounded-2xl p-4 border border-[#F0E2EB] mb-4">
+            <div className="bg-gradient-to-r from-[#FBEEF1] to-[#F4D6DC] rounded-2xl p-4 border border-[#F4D6DC] mb-4">
               {discountPercent > 0 && oldPrice && (
-                <span className="text-xs text-[#8E7188] line-through block mb-0.5">
+                <span className="text-xs text-[#9E6B72] line-through block mb-0.5">
                   {formatPrice(oldPrice)}
                 </span>
               )}
-              <span className="font-fredoka text-3xl text-[#CB96BA]">
+              <span className="font-fredoka text-3xl text-[#DB8291]">
                 {formatPrice(price)}
               </span>
             </div>
@@ -345,17 +345,17 @@ export default function ProductDetail() {
             {/* Description */}
             {product.deskripsi && (
               <div className="mb-5">
-                <h3 className="font-extrabold text-xs text-[#3E2D3B] uppercase tracking-wider mb-2">
+                <h3 className="font-extrabold text-xs text-[#720002] uppercase tracking-wider mb-2">
                   Deskripsi Produk
                 </h3>
-                <ul className="space-y-1.5 text-xs text-[#634B5E]">
+                <ul className="space-y-1.5 text-xs text-[#8A3A44]">
                   {product.deskripsi
                     .split(/\|\||,/)
                     .map(item => item.trim())
                     .filter(item => item.length > 0)
                     .map((item, index) => (
                       <li key={index} className="flex items-start gap-2">
-                        <span className="text-[#CB96BA] font-bold">🌸</span>
+                        <span className="text-[#DB8291] font-bold">🌸</span>
                         <span>{item}</span>
                       </li>
                     ))}
@@ -366,11 +366,11 @@ export default function ProductDetail() {
             {/* Quantity Selector */}
             {product.stok > 0 && (
               <div className="mb-5">
-                <label className="block font-extrabold text-xs text-[#3E2D3B] uppercase tracking-wider mb-2">Jumlah</label>
+                <label className="block font-extrabold text-xs text-[#720002] uppercase tracking-wider mb-2">Jumlah</label>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-9 h-9 rounded-xl border-2 border-[#F0E2EB] text-[#3E2D3B] font-extrabold hover:border-[#CB96BA] flex items-center justify-center"
+                    className="w-9 h-9 rounded-xl border-2 border-[#F4D6DC] text-[#720002] font-extrabold hover:border-[#DB8291] flex items-center justify-center"
                   >
                     -
                   </button>
@@ -380,15 +380,15 @@ export default function ProductDetail() {
                     max={product.stok}
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, Math.min(product.stok, parseInt(e.target.value) || 1)))}
-                    className="w-16 h-9 text-center border-2 border-[#F0E2EB] rounded-xl font-extrabold text-sm outline-none text-[#3E2D3B]"
+                    className="w-16 h-9 text-center border-2 border-[#F4D6DC] rounded-xl font-extrabold text-sm outline-none text-[#720002]"
                   />
                   <button
                     onClick={() => setQuantity(Math.min(product.stok, quantity + 1))}
-                    className="w-9 h-9 rounded-xl border-2 border-[#F0E2EB] text-[#3E2D3B] font-extrabold hover:border-[#CB96BA] flex items-center justify-center"
+                    className="w-9 h-9 rounded-xl border-2 border-[#F4D6DC] text-[#720002] font-extrabold hover:border-[#DB8291] flex items-center justify-center"
                   >
                     +
                   </button>
-                  <span className="text-xs text-[#8E7188] font-extrabold">Stok maks: {product.stok}</span>
+                  <span className="text-xs text-[#9E6B72] font-extrabold">Stok maks: {product.stok}</span>
                 </div>
               </div>
             )}
@@ -400,7 +400,7 @@ export default function ProductDetail() {
               <button
                 onClick={handleAddToCart}
                 disabled={product.stok === 0}
-                className="flex-1 py-3 px-4 rounded-xl border-2 border-[#CB96BA] text-[#CB96BA] font-extrabold text-xs hover:bg-[#F7F2F6] transition-all flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 px-4 rounded-xl border-2 border-[#DB8291] text-[#DB8291] font-extrabold text-xs hover:bg-[#FBEEF1] transition-all flex items-center justify-center gap-1.5"
               >
                 <i className="fa-solid fa-cart-plus"></i> + Keranjang
               </button>
@@ -415,7 +415,7 @@ export default function ProductDetail() {
 
             <button
               onClick={() => myAffiliateCode ? setShareMenuOpen(true) : handleShare('plain')}
-              className="w-full py-2.5 px-4 rounded-xl border border-[#F0E2EB] bg-[#F7F2F6] text-[#8E7188] font-extrabold text-xs hover:text-[#CB96BA] transition-all flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 px-4 rounded-xl border border-[#F4D6DC] bg-[#FBEEF1] text-[#9E6B72] font-extrabold text-xs hover:text-[#DB8291] transition-all flex items-center justify-center gap-1.5"
             >
               <i className="fa-solid fa-share-nodes"></i> Bagikan Produk
             </button>
@@ -426,7 +426,7 @@ export default function ProductDetail() {
       {/* Recommendations */}
       {recommendations.length > 0 && (
         <section className="pt-6">
-          <h2 className="font-fredoka text-2xl text-[#3E2D3B] mb-4">Rekomendasi Lainnya</h2>
+          <h2 className="font-fredoka text-2xl text-[#720002] mb-4">Rekomendasi Lainnya</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
             {recommendations.map(p => (
               <ProductCard key={p.id} product={p} />
@@ -438,24 +438,24 @@ export default function ProductDetail() {
       {/* Share Modal */}
       {shareMenuOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShareMenuOpen(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 border-2 border-[#F0E2EB] shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 border-2 border-[#F4D6DC] shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-fredoka text-xl text-[#3E2D3B]">Bagikan Produk 🌸</h3>
-              <button onClick={() => setShareMenuOpen(false)} className="text-[#8E7188] hover:text-[#3E2D3B]">
+              <h3 className="font-fredoka text-xl text-[#720002]">Bagikan Produk 🌸</h3>
+              <button onClick={() => setShareMenuOpen(false)} className="text-[#9E6B72] hover:text-[#720002]">
                 <i className="fa-solid fa-xmark"></i>
               </button>
             </div>
             <div className="space-y-3">
               <button
                 onClick={() => handleShare('plain')}
-                className="w-full p-4 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] font-extrabold text-xs text-[#3E2D3B] text-left hover:border-[#CB96BA]"
+                className="w-full p-4 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] font-extrabold text-xs text-[#720002] text-left hover:border-[#DB8291]"
               >
                 🔗 Link Produk Biasa
               </button>
               {myAffiliateCode && (
                 <button
                   onClick={() => handleShare('affiliate')}
-                  className="w-full p-4 rounded-2xl border-2 border-[#CB96BA] bg-gradient-to-r from-[#F0E2EB] to-[#F7F2F6] font-extrabold text-xs text-[#3E2D3B] text-left"
+                  className="w-full p-4 rounded-2xl border-2 border-[#DB8291] bg-gradient-to-r from-[#F4D6DC] to-[#FBEEF1] font-extrabold text-xs text-[#720002] text-left"
                 >
                   💖 Link Affiliate (?ref={myAffiliateCode})
                 </button>

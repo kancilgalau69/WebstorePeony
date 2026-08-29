@@ -24,4 +24,3 @@ WHERE key = 'store_description';
 -- Comments update
 COMMENT ON TABLE public.products IS 'Rain Store - Catalog products with stock management';
 COMMENT ON TABLE public.orders IS 'Rain Store - Customer orders with payment tracking';
-COMMENT ON TABLE public.resellers IS 'Rain Store - Reseller store profiles';

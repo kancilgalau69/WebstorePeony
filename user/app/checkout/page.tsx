@@ -9,7 +9,7 @@ import { resolveWebPrice } from '@/lib/pricing'
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const getItemPrice = (product: any) => resolveWebPrice(product)
   const normalizeEmail = (email: string) => String(email || '').trim().toLowerCase()
@@ -90,6 +90,13 @@ export default function CheckoutPage() {
 
     return () => { attempts = 999 }
   }, [])
+
+  // Require login to checkout. Redirect guests to register (with return path).
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/register?redirect=/checkout')
+    }
+  }, [authLoading, user, router])
 
   useEffect(() => {
     if (items.length === 0 && !isProcessingPayment) {
@@ -225,6 +232,11 @@ export default function CheckoutPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        // Session expired / not logged in -> send to register.
+        if (response.status === 401 || data.requireAuth) {
+          router.push('/register?redirect=/checkout')
+          return
+        }
         resetCaptcha()
         throw new Error(data.error || 'Gagal membuat transaksi')
       }
@@ -278,6 +290,31 @@ export default function CheckoutPage() {
     return null
   }
 
+  // Guests must register/login before checkout.
+  if (!authLoading && !user) {
+    return (
+      <div className="max-w-md mx-auto py-16 text-center animate-fadeIn">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-[#FBEEF1] border-2 border-[#F4D6DC] flex items-center justify-center text-3xl text-[#DB8291]">
+            <i className="fa-solid fa-user-lock"></i>
+          </div>
+          <h1 className="font-fredoka text-2xl text-[#720002]">Wajib Punya Akun</h1>
+          <p className="text-xs text-[#9E6B72] font-bold">
+            Untuk melakukan pembelian, Anda harus mendaftar &amp; login terlebih dahulu. Butuh token pendaftaran dari admin.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <button onClick={() => router.push('/register?redirect=/checkout')} className="btn-card-buy w-full py-3 text-xs">
+              Daftar Sekarang ✦
+            </button>
+            <button onClick={() => router.push('/login?redirect=/checkout')} className="w-full py-3 rounded-2xl border-2 border-[#F4D6DC] bg-white font-extrabold text-xs text-[#720002] hover:border-[#DB8291]">
+              Sudah punya akun? Masuk
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <Script
@@ -296,18 +333,18 @@ export default function CheckoutPage() {
         }}
       />
 
-      <div className="space-y-6 animate-fadeIn py-4">
-        <h1 className="font-fredoka text-3xl text-[#3E2D3B]">Checkout Pembayaran</h1>
+      <div className="max-w-[1160px] mx-auto px-4 space-y-6 animate-fadeIn py-4">
+        <h1 className="font-fredoka text-3xl text-[#720002]">Checkout Pembayaran</h1>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Customer Form Card */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 shadow-xs">
-              <h2 className="font-fredoka text-xl text-[#3E2D3B] mb-4">Informasi Pembeli</h2>
+            <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 shadow-xs">
+              <h2 className="font-fredoka text-xl text-[#720002] mb-4">Informasi Pembeli</h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                     Nama Lengkap <span className="text-[#D9777F]">*</span>
                   </label>
                   <input
@@ -315,13 +352,13 @@ export default function CheckoutPage() {
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                     placeholder="Nama lengkap Anda"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                     Email Aktif <span className="text-[#D9777F]">*</span>
                   </label>
                   <input
@@ -329,17 +366,17 @@ export default function CheckoutPage() {
                     required
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                     placeholder="contoh@email.com"
                     autoComplete="email"
                   />
-                  <p className="mt-1.5 text-[11px] font-bold text-[#8E7188] bg-[#F7F2F6] border border-[#F0E2EB] rounded-xl px-3 py-2">
+                  <p className="mt-1.5 text-[11px] font-bold text-[#9E6B72] bg-[#FBEEF1] border border-[#F4D6DC] rounded-xl px-3 py-2">
                     🌸 Item digital &amp; bukti transaksi akan langsung dikirimkan ke email ini.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                     No. Telepon / WhatsApp <span className="text-[#D9777F]">*</span>
                   </label>
                   <input
@@ -347,19 +384,19 @@ export default function CheckoutPage() {
                     required
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                    className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                     placeholder="08xxxxxxxxxx"
                   />
                 </div>
 
-                <div className="bg-[#F7F2F6] border-2 border-[#F0E2EB] rounded-2xl p-4 mt-6">
+                <div className="bg-[#FBEEF1] border-2 border-[#F4D6DC] rounded-2xl p-4 mt-6">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">📱</span>
                     <div>
-                      <h3 className="font-fredoka text-base text-[#3E2D3B]">
+                      <h3 className="font-fredoka text-base text-[#720002]">
                         Metode Pembayaran: Instant QRIS
                       </h3>
-                      <p className="text-xs font-bold text-[#8E7188] mt-0.5">
+                      <p className="text-xs font-bold text-[#9E6B72] mt-0.5">
                         Dukungan pembayaran via BCA, Mandiri, BRI, BNI, GoPay, OVO, Dana, ShopeePay, &amp; LinkAja.
                       </p>
                     </div>
@@ -368,7 +405,7 @@ export default function CheckoutPage() {
 
                 {/* CAPTCHA */}
                 <div className="mt-6">
-                  <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                     Verifikasi Keamanan <span className="text-[#D9777F]">*</span>
                   </label>
                   <div ref={captchaRef} />
@@ -387,16 +424,16 @@ export default function CheckoutPage() {
 
           {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 sticky top-20 shadow-xs space-y-4">
-              <h2 className="font-fredoka text-xl text-[#3E2D3B]">Ringkasan Pesanan</h2>
+            <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 sticky top-20 shadow-xs space-y-4">
+              <h2 className="font-fredoka text-xl text-[#720002]">Ringkasan Pesanan</h2>
               
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {items.map((item) => (
-                  <div key={item.product.id} className="flex justify-between text-xs font-bold text-[#8E7188]">
+                  <div key={item.product.id} className="flex justify-between text-xs font-bold text-[#9E6B72]">
                     <span className="truncate max-w-[180px]">
                       {item.product.nama} (x{item.quantity})
                     </span>
-                    <span className="text-[#3E2D3B]">
+                    <span className="text-[#720002]">
                       {formatPrice(getItemPrice(item.product) * item.quantity)}
                     </span>
                   </div>
@@ -404,7 +441,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* Promo Code Input */}
-              <div className="border-t-2 border-[#F0E2EB] pt-4">
+              <div className="border-t-2 border-[#F4D6DC] pt-4">
                 {appliedPromo ? (
                   <div className="bg-[#DCFCE7] border border-[#15803D]/20 rounded-2xl p-3 flex items-center justify-between">
                     <div>
@@ -417,20 +454,20 @@ export default function CheckoutPage() {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase mb-1">Kode Promo</label>
+                    <label className="block text-xs font-extrabold text-[#720002] uppercase mb-1">Kode Promo</label>
                     <div className="flex gap-2">
                       <input
                         type="text"
                         value={promoCode}
                         onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError('') }}
                         placeholder="KODE PROMO"
-                        className="flex-1 px-3 py-2 border-2 border-[#F0E2EB] rounded-xl text-xs font-extrabold outline-none uppercase text-[#3E2D3B]"
+                        className="flex-1 px-3 py-2 border-2 border-[#F4D6DC] rounded-xl text-xs font-extrabold outline-none uppercase text-[#720002]"
                       />
                       <button
                         type="button"
                         onClick={handleApplyPromo}
                         disabled={promoLoading || !promoCode.trim()}
-                        className="px-4 py-2 bg-[#CB96BA] text-white rounded-xl text-xs font-extrabold hover:bg-[#B881A6] disabled:opacity-40"
+                        className="px-4 py-2 bg-[#DB8291] text-white rounded-xl text-xs font-extrabold hover:bg-[#C56676] disabled:opacity-40"
                       >
                         {promoLoading ? '...' : 'Gunakan'}
                       </button>
@@ -440,35 +477,35 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              <div className="border-t-2 border-[#F0E2EB] pt-4 space-y-2">
+              <div className="border-t-2 border-[#F4D6DC] pt-4 space-y-2">
                 {/* Subtotal */}
-                <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                <div className="flex justify-between text-xs font-bold text-[#9E6B72]">
                   <span>Subtotal</span>
-                  <span className="text-[#3E2D3B]">{formatPrice(finalTotal)}</span>
+                  <span className="text-[#720002]">{formatPrice(finalTotal)}</span>
                 </div>
 
                 {/* Qiospay admin fee (unique code that will be paid by customer) */}
                 {paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
-                  <div className="flex justify-between text-xs font-bold text-[#8E7188]">
+                  <div className="flex justify-between text-xs font-bold text-[#9E6B72]">
                     <span className="flex items-center gap-1">
                       Biaya Admin
                       <span className="text-[10px] text-[#B8A0B2]" title="Kode unik untuk verifikasi pembayaran otomatis">
                         (kode unik)
                       </span>
                     </span>
-                    <span className="text-[#3E2D3B]">{formatPrice(paymentInfo.adminFee)}</span>
+                    <span className="text-[#720002]">{formatPrice(paymentInfo.adminFee)}</span>
                   </div>
                 )}
 
-                <div className="flex justify-between font-fredoka text-xl pt-1 border-t border-[#F0E2EB]">
-                  <span className="text-[#3E2D3B]">Total</span>
-                  <span className="text-[#CB96BA]">
+                <div className="flex justify-between font-fredoka text-xl pt-1 border-t border-[#F4D6DC]">
+                  <span className="text-[#720002]">Total</span>
+                  <span className="text-[#DB8291]">
                     {formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)}
                   </span>
                 </div>
 
                 {paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee > 0 && (
-                  <p className="text-[10px] font-bold text-[#8E7188] bg-[#F7F2F6] border border-[#F0E2EB] rounded-xl px-3 py-2 mt-1">
+                  <p className="text-[10px] font-bold text-[#9E6B72] bg-[#FBEEF1] border border-[#F4D6DC] rounded-xl px-3 py-2 mt-1">
                     ℹ️ Biaya admin {formatPrice(paymentInfo.adminFee)} adalah kode unik yang membantu sistem memverifikasi pembayaran Anda secara otomatis.
                   </p>
                 )}

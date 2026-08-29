@@ -14,16 +14,6 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_reservations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.resellers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reseller_products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reseller_prices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reseller_orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reseller_order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.reseller_withdrawals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.web_reseller_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.web_reseller_login_attempts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.web_reseller_security_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.web_reseller_blocked_ips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_web_affiliates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.affiliate_clicks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.affiliate_earnings ENABLE ROW LEVEL SECURITY;
@@ -67,36 +57,6 @@ CREATE POLICY "stock_reservations_all" ON public.stock_reservations FOR ALL USIN
 
 DROP POLICY IF EXISTS "favorites_all" ON public.favorites;
 CREATE POLICY "favorites_all" ON public.favorites FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "resellers_all" ON public.resellers;
-CREATE POLICY "resellers_all" ON public.resellers FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "reseller_products_all" ON public.reseller_products;
-CREATE POLICY "reseller_products_all" ON public.reseller_products FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "reseller_prices_all" ON public.reseller_prices;
-CREATE POLICY "reseller_prices_all" ON public.reseller_prices FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "reseller_orders_all" ON public.reseller_orders;
-CREATE POLICY "reseller_orders_all" ON public.reseller_orders FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "reseller_order_items_all" ON public.reseller_order_items;
-CREATE POLICY "reseller_order_items_all" ON public.reseller_order_items FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "reseller_withdrawals_all" ON public.reseller_withdrawals;
-CREATE POLICY "reseller_withdrawals_all" ON public.reseller_withdrawals FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "web_reseller_sessions_all" ON public.web_reseller_sessions;
-CREATE POLICY "web_reseller_sessions_all" ON public.web_reseller_sessions FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "web_reseller_login_attempts_all" ON public.web_reseller_login_attempts;
-CREATE POLICY "web_reseller_login_attempts_all" ON public.web_reseller_login_attempts FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "web_reseller_security_logs_all" ON public.web_reseller_security_logs;
-CREATE POLICY "web_reseller_security_logs_all" ON public.web_reseller_security_logs FOR ALL USING (true) WITH CHECK (true);
-
-DROP POLICY IF EXISTS "web_reseller_blocked_ips_all" ON public.web_reseller_blocked_ips;
-CREATE POLICY "web_reseller_blocked_ips_all" ON public.web_reseller_blocked_ips FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "user_web_affiliates_all" ON public.user_web_affiliates;
 CREATE POLICY "user_web_affiliates_all" ON public.user_web_affiliates FOR ALL USING (true) WITH CHECK (true);

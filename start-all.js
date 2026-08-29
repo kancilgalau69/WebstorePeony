@@ -39,24 +39,6 @@ const services = {
     url: 'http://localhost:3001',
     color: '\x1b[33m', // Yellow
   },
-  'reseller-dashboard': {
-    name: 'Reseller Dashboard',
-    cwd: path.join(__dirname, 'reseller-dashboard'),
-    command: 'npm',
-    args: ['run', 'dev'],
-    port: '3002',
-    url: 'http://localhost:3002',
-    color: '\x1b[32m', // Green
-  },
-  'web-reseller': {
-    name: 'Web Reseller Store',
-    cwd: path.join(__dirname, 'web-reseller'),
-    command: 'npm',
-    args: ['run', 'dev'],
-    port: '3003',
-    url: 'http://localhost:3003',
-    color: '\x1b[34m', // Blue
-  },
   'web-blog': {
     name: 'Web Blog',
     cwd: path.join(__dirname, 'web-blog'),
@@ -92,8 +74,6 @@ function printHelp() {
   console.log('  bot                - Run Telegram Bot only');
   console.log('  dashboard          - Run Admin Dashboard only');
   console.log('  store              - Run User Web Store only');
-  console.log('  reseller-dashboard - Run Reseller Dashboard only');
-  console.log('  web-reseller       - Run Web Reseller Store only');
   console.log('  web-blog           - Run Web Blog only\n');
   console.log('Examples:');
   console.log('  node start-all.js');

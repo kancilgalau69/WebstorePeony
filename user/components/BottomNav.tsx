@@ -34,7 +34,7 @@ export default function BottomNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 glass-peony border-t-2 border-[#F0E2EB] md:hidden z-50 shadow-2xl">
+    <nav className="fixed bottom-0 left-0 right-0 glass-peony border-t-2 border-[#F4D6DC] md:hidden z-50 shadow-2xl">
       <div className="flex justify-around items-center h-16 max-w-md mx-auto">
         {navItems.map((item) => {
           const isActive =
@@ -44,21 +44,21 @@ export default function BottomNav() {
               (item.href === '/profile' && pathname === '/profile'))
 
           const className = `flex-1 flex flex-col items-center justify-center py-1.5 transition-all relative ${
-            isActive ? 'text-[#CB96BA]' : 'text-[#8E7188] hover:text-[#CB96BA]'
+            isActive ? 'text-[#DB8291]' : 'text-[#9E6B72] hover:text-[#DB8291]'
           }`
 
           const inner = (
             <>
               {isActive && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#CB96BA] rounded-b-full shadow-xs" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#DB8291] rounded-b-full shadow-xs" />
               )}
               <span className="relative inline-flex">
                 {item.href === '/profile' && user ? (
                   <span
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
                       isActive
-                        ? 'bg-gradient-to-br from-[#CB96BA] to-[#B0B3D6] text-white shadow-xs'
-                        : 'bg-[#F0E2EB] text-[#8E7188]'
+                        ? 'bg-gradient-to-br from-[#DB8291] to-[#E7A6B1] text-white shadow-xs'
+                        : 'bg-[#F4D6DC] text-[#9E6B72]'
                     }`}
                   >
                     {user.nama.charAt(0).toUpperCase()}
@@ -67,12 +67,12 @@ export default function BottomNav() {
                   <i className={`fa-solid ${isActive ? item.activeIcon : item.icon} text-lg`}></i>
                 )}
                 {item.href === '/cart' && itemCount > 0 && (
-                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#CB96BA] text-white text-[9px] font-black flex items-center justify-center shadow-xs">
+                  <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#DB8291] text-white text-[9px] font-black flex items-center justify-center shadow-xs">
                     {itemCount > 99 ? '99+' : itemCount}
                   </span>
                 )}
               </span>
-              <span className={`text-[10px] mt-1 font-extrabold ${isActive ? 'text-[#CB96BA]' : ''}`}>{item.label}</span>
+              <span className={`text-[10px] mt-1 font-extrabold ${isActive ? 'text-[#DB8291]' : ''}`}>{item.label}</span>
             </>
           )
 

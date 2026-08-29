@@ -1,18 +1,21 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Script from 'next/script'
 import { useAuth } from '@/components/AuthProvider'
 
-export default function RegisterPage() {
+function RegisterInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/profile'
   const { user, register } = useAuth()
 
   const [nama, setNama] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [token, setToken] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -29,9 +32,9 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/profile')
+      router.push(redirectTo)
     }
-  }, [user, router])
+  }, [user, router, redirectTo])
 
   const renderCaptcha = () => {
     const hc = (window as any).hcaptcha
@@ -101,8 +104,8 @@ export default function RegisterPage() {
     setError('')
     setPasswordErrors([])
 
-    if (!nama.trim() || !email.trim() || !phone.trim() || !password || !confirmPassword) {
-      setError('Mohon isi semua data!')
+    if (!nama.trim() || !email.trim() || !phone.trim() || !token.trim() || !password || !confirmPassword) {
+      setError('Mohon isi semua data termasuk token pendaftaran!')
       return
     }
 
@@ -122,6 +125,7 @@ export default function RegisterPage() {
       nama: nama.trim(),
       email: email.trim(),
       phone: phone.trim(),
+      token: token.trim(),
       password,
       confirmPassword,
       captchaToken,
@@ -130,7 +134,7 @@ export default function RegisterPage() {
     if (result.success) {
       setSuccess(true)
       setTimeout(() => {
-        router.push('/profile')
+        router.push(redirectTo)
       }, 1500)
     } else {
       setError(result.error || 'Registrasi gagal')
@@ -146,10 +150,10 @@ export default function RegisterPage() {
   if (success) {
     return (
       <div className="max-w-md mx-auto py-12 animate-fadeIn text-center">
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-8 shadow-xs space-y-3">
-          <div className="text-5xl text-[#CB96BA] mb-2">🌸</div>
-          <h1 className="font-fredoka text-2xl text-[#3E2D3B]">Registrasi Berhasil!</h1>
-          <p className="text-xs text-[#8E7188] font-bold">Mengalihkan ke profil Anda...</p>
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-3">
+          <div className="text-5xl text-[#DB8291] mb-2">🌸</div>
+          <h1 className="font-fredoka text-2xl text-[#720002]">Registrasi Berhasil!</h1>
+          <p className="text-xs text-[#9E6B72] font-bold">Mengalihkan ke profil Anda...</p>
         </div>
       </div>
     )
@@ -168,13 +172,13 @@ export default function RegisterPage() {
       />
 
       <div className="max-w-md mx-auto py-8 animate-fadeIn">
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 md:p-8 shadow-xs space-y-6">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 md:p-8 shadow-xs space-y-6">
           <div className="text-center">
-            <div className="w-16 h-16 bg-[#F7F2F6] border-2 border-[#F0E2EB] rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
+            <div className="w-16 h-16 bg-[#FBEEF1] border-2 border-[#F4D6DC] rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
               🌸
             </div>
-            <h1 className="font-fredoka text-3xl text-[#3E2D3B]">Daftar Akun Baru</h1>
-            <p className="text-xs text-[#8E7188] font-bold mt-1">
+            <h1 className="font-fredoka text-3xl text-[#720002]">Daftar Akun Baru</h1>
+            <p className="text-xs text-[#9E6B72] font-bold mt-1">
               Buat akun untuk mengelola transaksi &amp; riwayat pesanan
             </p>
           </div>
@@ -193,8 +197,26 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Registration token (admin-issued) */}
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
+                Token Pendaftaran <span className="text-[#D9777F]">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={token}
+                onChange={(e) => setToken(e.target.value.toUpperCase())}
+                className="w-full px-4 py-3 rounded-2xl border-2 border-[#DB8291] bg-white text-[#720002] font-mono font-extrabold text-sm tracking-wider outline-none focus:border-[#720002] uppercase"
+                placeholder="PBS-XXXX-XXXX"
+              />
+              <p className="mt-1.5 text-[11px] font-bold text-[#9E6B72] bg-[#FBEEF1] border border-[#F4D6DC] rounded-xl px-3 py-2">
+                🔑 Token diberikan oleh admin. Hubungi admin untuk mendapatkan token pendaftaran.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Nama Lengkap <span className="text-[#D9777F]">*</span>
               </label>
               <input
@@ -202,13 +224,13 @@ export default function RegisterPage() {
                 required
                 value={nama}
                 onChange={(e) => setNama(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                 placeholder="Nama lengkap Anda"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Email Aktif <span className="text-[#D9777F]">*</span>
               </label>
               <input
@@ -216,14 +238,14 @@ export default function RegisterPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                 placeholder="contoh@email.com"
                 autoComplete="email"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Nomor HP / WhatsApp <span className="text-[#D9777F]">*</span>
               </label>
               <input
@@ -231,13 +253,13 @@ export default function RegisterPage() {
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                 placeholder="08xxxxxxxxxx"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Password <span className="text-[#D9777F]">*</span>
               </label>
               <div className="relative">
@@ -246,26 +268,26 @@ export default function RegisterPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                  className="w-full px-4 py-3 pr-12 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                   placeholder="Buat password yang kuat"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E7188]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9E6B72]"
                 >
                   <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                 </button>
               </div>
 
               {password.length > 0 && (
-                <div className="mt-2 bg-[#F7F2F6] border border-[#F0E2EB] rounded-2xl p-3 text-[11px] font-bold text-[#8E7188] space-y-1">
+                <div className="mt-2 bg-[#FBEEF1] border border-[#F4D6DC] rounded-2xl p-3 text-[11px] font-bold text-[#9E6B72] space-y-1">
                   {getPasswordChecks().map((check, i) => (
                     <div key={i} className="flex items-center gap-1.5">
                       <span className={check.valid ? 'text-[#15803D]' : 'text-[#D9777F]'}>
                         {check.valid ? '✓' : '✗'}
                       </span>
-                      <span className={check.valid ? 'text-[#15803D]' : 'text-[#8E7188]'}>{check.label}</span>
+                      <span className={check.valid ? 'text-[#15803D]' : 'text-[#9E6B72]'}>{check.label}</span>
                     </div>
                   ))}
                 </div>
@@ -273,7 +295,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Konfirmasi Password <span className="text-[#D9777F]">*</span>
               </label>
               <div className="relative">
@@ -282,13 +304,13 @@ export default function RegisterPage() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                  className="w-full px-4 py-3 pr-12 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                   placeholder="Ulangi password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E7188]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9E6B72]"
                 >
                   <i className={`fa-solid ${showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                 </button>
@@ -296,7 +318,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Verifikasi Keamanan <span className="text-[#D9777F]">*</span>
               </label>
               <div ref={captchaRef} />
@@ -304,21 +326,34 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading || (!captchaToken && captchaReady) || !isPasswordStrong() || !passwordsMatch}
+              disabled={loading || (!captchaToken && captchaReady) || !isPasswordStrong() || !passwordsMatch || !token.trim()}
               className="btn-card-buy w-full py-3.5 text-xs mt-2"
             >
               {loading ? 'Mendaftarkan...' : !captchaToken && captchaReady ? 'Selesaikan CAPTCHA dulu' : 'Daftar Sekarang ✦'}
             </button>
           </form>
 
-          <div className="text-center text-xs font-bold text-[#8E7188] pt-2">
+          <div className="text-center text-xs font-bold text-[#9E6B72] pt-2">
             Sudah punya akun?{' '}
-            <Link href="/login" className="text-[#CB96BA] font-extrabold hover:underline">
+            <Link href="/login" className="text-[#DB8291] font-extrabold hover:underline">
               Masuk di sini
             </Link>
           </div>
         </div>
       </div>
     </>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-12 text-center text-[#9E6B72]">
+        <div className="text-4xl animate-bounce mb-2 text-[#DB8291]"><i className="fa-solid fa-store"></i></div>
+        <p className="font-fredoka text-lg text-[#720002]">Memuat...</p>
+      </div>
+    }>
+      <RegisterInner />
+    </Suspense>
   )
 }

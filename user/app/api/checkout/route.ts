@@ -473,8 +473,14 @@ async function computeUniqueQiospayAmount(
 
 export async function POST(request: NextRequest) {
   try {
-    // 0. Check if user is logged in (optional - for linking order to account)
+    // 0. Require a logged-in account to purchase.
     const sessionUser = await getSessionUser(request)
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: 'Anda harus login untuk melakukan pembelian.', requireAuth: true },
+        { status: 401 }
+      )
+    }
 
     // 1. Parse body
     const body = await request.json()
@@ -835,7 +841,7 @@ export async function POST(request: NextRequest) {
       const qrString = transactionInfo.qr_string || null
       const qrCodeUrl = transactionInfo.qr_link || transactionInfo.pay_url || transactionInfo.checkout_url
       
-      // Reserve items
+      // Reserve items (must check reserveResult.ok — RPC returns ok:false as data, not an error)
       const reservationResults: Array<any> = []
       for (const item of serverItems) {
         try {
@@ -845,16 +851,19 @@ export async function POST(request: NextRequest) {
             p_quantity: item.quantity,
           })
           if (reserveError) throw reserveError
+          if (!reserveResult || !reserveResult.ok) {
+            throw new Error(reserveResult?.msg || 'reserve_failed')
+          }
           reservationResults.push({ success: true })
         } catch (err: any) {
-           logError('CHECKOUT', 'Reserve failed', { orderId, error: err.message })
-           reservationResults.push({ success: false })
+           logError('CHECKOUT', 'Reserve failed', { orderId, code: item.product.kode, error: err.message })
+           reservationResults.push({ success: false, product: item.product.nama })
         }
       }
 
       if (reservationResults.some(r => !r.success)) {
         await releaseReservedItemsForOrder(orderId)
-        return NextResponse.json({ error: 'Gagal mereservasi produk, silakan coba lagi' }, { status: 400 })
+        return NextResponse.json({ error: 'Stok produk tidak tersedia. Silakan hubungi admin.' }, { status: 400 })
       }
 
       // 8. Insert Order ke Database
@@ -968,7 +977,7 @@ export async function POST(request: NextRequest) {
         uniqueAmount,
       })
 
-      // Reserve items
+      // Reserve items (must check reserveResult.ok — RPC returns ok:false as data, not an error)
       const reservationResults: Array<any> = []
       for (const item of serverItems) {
         try {
@@ -978,16 +987,19 @@ export async function POST(request: NextRequest) {
             p_quantity: item.quantity,
           })
           if (reserveError) throw reserveError
+          if (!reserveResult || !reserveResult.ok) {
+            throw new Error(reserveResult?.msg || 'reserve_failed')
+          }
           reservationResults.push({ success: true })
         } catch (err: any) {
-          logError('CHECKOUT', 'Reserve failed', { orderId, error: err.message })
-          reservationResults.push({ success: false })
+          logError('CHECKOUT', 'Reserve failed', { orderId, code: item.product.kode, error: err.message })
+          reservationResults.push({ success: false, product: item.product.nama })
         }
       }
 
       if (reservationResults.some((r) => !r.success)) {
         await releaseReservedItemsForOrder(orderId)
-        return NextResponse.json({ error: 'Gagal mereservasi produk, silakan coba lagi' }, { status: 400 })
+        return NextResponse.json({ error: 'Stok produk tidak tersedia. Silakan hubungi admin.' }, { status: 400 })
       }
 
       const dbOrderItems = serverItems.map((item) => ({

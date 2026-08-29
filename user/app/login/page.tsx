@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Script from 'next/script'
 import { useAuth } from '@/components/AuthProvider'
 
-export default function LoginPage() {
+function LoginInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/profile'
   const { user, login } = useAuth()
 
   const [identifier, setIdentifier] = useState('')
@@ -24,9 +26,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) {
-      router.push('/profile')
+      router.push(redirectTo)
     }
-  }, [user, router])
+  }, [user, router, redirectTo])
 
   const renderCaptcha = () => {
     const hc = (window as any).hcaptcha
@@ -99,7 +101,7 @@ export default function LoginPage() {
     if (result.success) {
       setSuccess(true)
       setTimeout(() => {
-        router.push('/profile')
+        router.push(redirectTo)
       }, 1000)
     } else {
       setError(result.error || 'Login gagal')
@@ -112,10 +114,10 @@ export default function LoginPage() {
   if (success) {
     return (
       <div className="max-w-md mx-auto py-12 animate-fadeIn text-center">
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-8 shadow-xs space-y-3">
-          <div className="text-5xl text-[#CB96BA] mb-2">🌸</div>
-          <h1 className="font-fredoka text-2xl text-[#3E2D3B]">Login Berhasil!</h1>
-          <p className="text-xs text-[#8E7188] font-bold">Mengalihkan ke profil Anda...</p>
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-8 shadow-xs space-y-3">
+          <div className="text-5xl text-[#DB8291] mb-2">🌸</div>
+          <h1 className="font-fredoka text-2xl text-[#720002]">Login Berhasil!</h1>
+          <p className="text-xs text-[#9E6B72] font-bold">Mengalihkan ke profil Anda...</p>
         </div>
       </div>
     )
@@ -134,13 +136,13 @@ export default function LoginPage() {
       />
 
       <div className="max-w-md mx-auto py-8 animate-fadeIn">
-        <div className="bg-white rounded-3xl border-2 border-[#F0E2EB] p-6 md:p-8 shadow-xs space-y-6">
+        <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 md:p-8 shadow-xs space-y-6">
           <div className="text-center">
-            <div className="w-16 h-16 bg-[#F7F2F6] border-2 border-[#F0E2EB] rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
+            <div className="w-16 h-16 bg-[#FBEEF1] border-2 border-[#F4D6DC] rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
               🌸
             </div>
-            <h1 className="font-fredoka text-3xl text-[#3E2D3B]">Masuk Akun</h1>
-            <p className="text-xs text-[#8E7188] font-bold mt-1">
+            <h1 className="font-fredoka text-3xl text-[#720002]">Masuk Akun</h1>
+            <p className="text-xs text-[#9E6B72] font-bold mt-1">
               Masuk untuk melihat riwayat pesanan Anda
             </p>
           </div>
@@ -153,7 +155,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Email atau Nomor HP <span className="text-[#D9777F]">*</span>
               </label>
               <input
@@ -161,14 +163,14 @@ export default function LoginPage() {
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                 placeholder="contoh@email.com atau 08xxxxxxxx"
                 autoComplete="username"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Password <span className="text-[#D9777F]">*</span>
               </label>
               <div className="relative">
@@ -177,14 +179,14 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-2xl border-2 border-[#F0E2EB] bg-[#F7F2F6] text-[#3E2D3B] font-extrabold text-sm outline-none focus:border-[#CB96BA]"
+                  className="w-full px-4 py-3 pr-12 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]"
                   placeholder="Masukkan password"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E7188]"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9E6B72]"
                 >
                   <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                 </button>
@@ -192,7 +194,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-[#3E2D3B] uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
                 Verifikasi Keamanan <span className="text-[#D9777F]">*</span>
               </label>
               <div ref={captchaRef} />
@@ -207,14 +209,27 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="text-center text-xs font-bold text-[#8E7188] pt-2">
+          <div className="text-center text-xs font-bold text-[#9E6B72] pt-2">
             Belum punya akun?{' '}
-            <Link href="/register" className="text-[#CB96BA] font-extrabold hover:underline">
+            <Link href={`/register${redirectTo !== '/profile' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`} className="text-[#DB8291] font-extrabold hover:underline">
               Daftar sekarang
             </Link>
           </div>
         </div>
       </div>
     </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-12 text-center text-[#9E6B72]">
+        <div className="text-4xl animate-bounce mb-2 text-[#DB8291]"><i className="fa-solid fa-store"></i></div>
+        <p className="font-fredoka text-lg text-[#720002]">Memuat...</p>
+      </div>
+    }>
+      <LoginInner />
+    </Suspense>
   )
 }

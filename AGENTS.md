@@ -3,31 +3,29 @@
 This repo is a monorepo with a Telegram bot plus several Next.js apps. Prefer links to docs instead of copying large sections.
 
 ## Services
-- bot-telegram: Node.js + Telegraf bot and webhook receiver.
+- bot-telegram: Node.js + Telegraf bot and webhook receiver (admin notifications + Midtrans relay).
 - dashboard: Admin dashboard (Next.js 16, React 19).
 - user: Customer web store (Next.js 14).
-- reseller-dashboard: Reseller management (Next.js 14).
-- web-reseller: Reseller storefront (Next.js 14).
 - web-blog: Public blog (Next.js 14).
 - supabase: SQL migrations and database docs.
+
+Note: the reseller subsystem (reseller-dashboard, web-reseller) has been retired and removed. See supabase/migrations/009_drop_reseller_system.sql for the DB cleanup patch.
 
 ## Commands (root)
 - Install all: npm run install:all
 - Start all services: npm start (runs start-all.js)
-- Start one service: npm run bot | dashboard | store | reseller-dashboard | web-reseller | web-blog
-- Build: npm run build:dashboard | build:store | build:reseller-dashboard | build:web-reseller | build:web-blog
+- Start one service: npm run bot | dashboard | store | web-blog
+- Build: npm run build:dashboard | build:store | build:web-blog
 
 ## Service scripts
 - bot-telegram: npm start | npm run dev | npm test | npm run migrate
 - user: npm run dev | npm run build | npm start | npm run test-flow | npm run simulate-order
-- dashboard/reseller-dashboard/web-reseller/web-blog: npm run dev | npm run build | npm start | npm run lint
+- dashboard/web-blog: npm run dev | npm run build | npm start | npm run lint
 
 ## Ports and local URLs
 Use package.json scripts as source of truth:
 - Bot: HTTP_PORT env (default 3000).
 - User store: 3001
-- Reseller dashboard: 3002
-- Web reseller: 3003
 - Admin dashboard: 3004
 - Web blog: 3005
 Note: start-all.js prints dashboard as 3000, but the dashboard dev script uses 3004.
@@ -37,8 +35,6 @@ Each service has its own env file:
 - bot-telegram/.env
 - dashboard/.env.local
 - user/.env.local
-- reseller-dashboard/.env.local
-- web-reseller/.env.local
 - web-blog/.env.local
 See setup guides for required keys.
 
@@ -49,7 +45,6 @@ See setup guides for required keys.
 - User checkout API: user/app/api/checkout/route.ts
 - User webhook API: user/app/api/webhook/route.ts
 - Email delivery: user/lib/email/
-- Reseller auth: reseller-dashboard/lib/auth.ts
 - DB migrations: supabase/migrations/
 
 ## Known pitfalls and guardrails
@@ -63,7 +58,6 @@ See setup guides for required keys.
 - Overview docs: docs/README.md and docs/general/README.md
 - Bot setup: docs/bot/QUICKSTART.md and docs/bot/DEVELOPER_GUIDE.md
 - User store setup: docs/user-store/SETUP-GUIDE.md
-- Reseller system: docs/reseller/README.md
 - Database setup: docs/database/README.md and supabase/README.md
 - RLS troubleshooting: docs/database/RLS-FIX-GUIDE.md
 - Migration scripts: bot-telegram/scripts/README.md

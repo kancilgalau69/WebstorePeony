@@ -49,15 +49,34 @@ export async function settleQiospayOrder(orderId: string, expectedAmount?: numbe
 
   const alreadyCompleted = String(order.status).toLowerCase() === 'completed'
 
-  // 1. Mark completed (idempotent)
+  // 1. Mark completed (idempotent). The .neq guard + returned rows tell us whether
+  //    THIS call performed the pending -> completed transition, so the admin
+  //    notification fires exactly once.
+  let didTransition = false
   if (!alreadyCompleted) {
-    const { error: updErr } = await supabase
+    const { data: updatedRows, error: updErr } = await supabase
       .from('orders')
       .update({ status: 'completed', paid_at: new Date().toISOString() })
       .eq('order_id', orderId)
       .neq('status', 'completed')
+      .select('id')
     if (updErr) {
       logWarn('SETTLE', 'Order update failed', { orderId, message: updErr.message })
+    } else {
+      didTransition = (updatedRows?.length || 0) > 0
+    }
+  }
+
+  // Notify admin on the real transition (once). Non-blocking — never fail settlement.
+  if (didTransition) {
+    try {
+      await notifyAdminPaymentSuccess({
+        orderId,
+        amount: Number(order.total_amount || 0),
+        customerName: String(order.customer_name || ''),
+      })
+    } catch (e: any) {
+      logWarn('SETTLE', 'Admin notify failed (non-fatal)', { orderId, error: e?.message })
     }
   }
 
@@ -95,17 +114,36 @@ export async function settleQiospayOrder(orderId: string, expectedAmount?: numbe
     }
   }
 
-  // 3. Persist into order_items (group item_data by product_code)
+  // 3. Persist into order_items.
+  // Group finalized item_data by product_code, but tolerate stale/mismatched codes:
+  // every finalized row is scoped to THIS order_id by the RPC, so if a snapshot
+  // product code has no direct match we fall back to the pool of unmatched items.
+  const snapshots = order.items || []
   const dataByCode = new Map<string, string[]>()
   for (const it of finalized) {
     const code = it.product_code
-    if (!code) continue
-    if (!dataByCode.has(code)) dataByCode.set(code, [])
-    if (it.item_data) dataByCode.get(code)!.push(it.item_data)
+    if (!it.item_data) continue
+    const key = code || '__nocode__'
+    if (!dataByCode.has(key)) dataByCode.set(key, [])
+    dataByCode.get(key)!.push(it.item_data)
   }
 
-  for (const snap of order.items || []) {
-    const parts = dataByCode.get(snap.product_code) || []
+  // Any finalized item whose code isn't among the ordered codes -> pool for fallback.
+  const orderedCodes = new Set(snapshots.map((s: any) => s.product_code))
+  const leftoverPool: string[] = []
+  for (const [code, arr] of dataByCode.entries()) {
+    if (!orderedCodes.has(code)) leftoverPool.push(...arr)
+  }
+  // Single-product order is the common case: if the ordered code has no direct
+  // match but finalized items exist, attribute the whole pool to it.
+  const isSingleProductOrder = snapshots.length === 1
+
+  for (const snap of snapshots) {
+    let parts = dataByCode.get(snap.product_code) || []
+    if (parts.length === 0 && (isSingleProductOrder || leftoverPool.length > 0)) {
+      // Fall back to leftover finalized items (handles stale product_code mismatches).
+      parts = leftoverPool.splice(0, snap.quantity || leftoverPool.length)
+    }
     const combined = parts.join('\n') || null
     if (!combined) continue
     try {
@@ -246,4 +284,60 @@ async function sendDeliveryEmail(orderUuid: string, orderId: string) {
   } catch (e: any) {
     logError('SETTLE', 'sendDeliveryEmail exception', { orderId, error: e?.message })
   }
+}
+
+/**
+ * Send the "PEMBAYARAN BERHASIL" notification to admin Telegram chat(s).
+ * Self-contained so the Qiospay direct-settle path (payment-status poller +
+ * callback) notifies admins, mirroring the Midtrans/webhook flow.
+ */
+async function notifyAdminPaymentSuccess(data: { orderId: string; amount: number; customerName: string }) {
+  const token = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
+  const adminIds = String(process.env.TELEGRAM_ADMIN_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  if (!token || adminIds.length === 0) {
+    logWarn('SETTLE', 'Telegram env missing; skip admin notify', {
+      hasToken: Boolean(token),
+      adminCount: adminIds.length,
+    })
+    return
+  }
+
+  const message = [
+    '✅ PEMBAYARAN BERHASIL!',
+    '───────────────────────',
+    'Sumber: WEBSITE',
+    `Order ID: ${data.orderId}`,
+    data.customerName ? `Customer: ${data.customerName}` : null,
+    `Amount: Rp ${Number(data.amount || 0).toLocaleString('id-ID')}`,
+    'Payment: QIOSPAY',
+    '',
+    'ℹ️ Produk diproses auto-delivery.',
+    '───────────────────────',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  await Promise.all(
+    adminIds.map(async (chatId) => {
+      try {
+        const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: message, disable_web_page_preview: true }),
+        })
+        if (!resp.ok) {
+          const body = await resp.text().catch(() => '')
+          logWarn('SETTLE', 'Telegram admin notify non-OK', { chatId, status: resp.status, body: body.slice(0, 200) })
+        } else {
+          logInfo('SETTLE', 'Admin payment-success notified', { orderId: data.orderId, chatId })
+        }
+      } catch (e: any) {
+        logWarn('SETTLE', 'Telegram admin notify error', { chatId, error: e?.message })
+      }
+    })
+  )
 }

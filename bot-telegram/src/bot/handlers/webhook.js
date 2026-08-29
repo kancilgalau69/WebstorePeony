@@ -30,7 +30,6 @@ const FORWARD_WEBHOOK_RETRY_DELAY_MS = Math.max(250, parsePositiveInteger(proces
 const FORWARDED_WEBHOOK_EVENTS_MAX = Math.max(1000, parsePositiveInteger(process.env.FORWARDED_WEBHOOK_EVENTS_MAX, 5000));
 
 let hasLoggedMissingWebStoreWebhookUrl = false;
-let hasLoggedMissingResellerWebhookUrl = false;
 
 function createForwardEventKey({ orderId, transactionStatus, statusCode, grossAmount }) {
   return [
@@ -209,109 +208,9 @@ async function forwardToWebStoreWebhook(body, context = {}) {
   return false;
 }
 
-async function forwardToResellerWebhook(body, context = {}) {
-  const webhookUrl = normalizeWebhookTarget(process.env.WEBHOOK_WEB_RESELLER_URL);
-  const orderId = context.orderId || '-';
-  const transactionStatus = context.transactionStatus || '-';
-  const correlationId = context.correlationId || '-';
-  const forwardEventKey = context.forwardEventKey || '-';
-
-  if (!webhookUrl) {
-    if (!hasLoggedMissingResellerWebhookUrl) {
-      hasLoggedMissingResellerWebhookUrl = true;
-      logger.warn('[WEBHOOK] WEBHOOK_WEB_RESELLER_URL is empty; forwarding to reseller web is disabled', {
-        correlationId,
-      });
-    }
-    return false;
-  }
-
-  for (let attempt = 1; attempt <= FORWARD_WEBHOOK_MAX_ATTEMPTS; attempt += 1) {
-    const timeoutController = new AbortController();
-    const timeoutId = setTimeout(() => timeoutController.abort(), FORWARD_WEBHOOK_TIMEOUT_MS);
-
-    try {
-      const forwardRes = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-PBS-Relay-Source': 'bot-webhook',
-          'X-PBS-Relay-Correlation-Id': String(correlationId),
-          'X-PBS-Relay-Event-Key': String(forwardEventKey),
-        },
-        body: JSON.stringify(body),
-        signal: timeoutController.signal,
-      });
-
-      const responseText = await forwardRes.text();
-
-      if (forwardRes.ok) {
-        logger.info('[WEBHOOK] Forwarded to reseller webhook', {
-          correlationId,
-          orderId,
-          transactionStatus,
-          url: webhookUrl,
-          status: forwardRes.status,
-          attempt,
-        });
-        return true;
-      }
-
-      const shouldRetry = (forwardRes.status === 429 || forwardRes.status >= 500)
-        && attempt < FORWARD_WEBHOOK_MAX_ATTEMPTS;
-
-      logger.error('[WEBHOOK] Reseller webhook returned non-2xx response', {
-        correlationId,
-        orderId,
-        transactionStatus,
-        url: webhookUrl,
-        status: forwardRes.status,
-        attempt,
-        willRetry: shouldRetry,
-        responsePreview: String(responseText || '').slice(0, 300),
-      });
-
-      if (shouldRetry) {
-        await waitForwardRetry(FORWARD_WEBHOOK_RETRY_DELAY_MS * attempt);
-        continue;
-      }
-
-      return false;
-    } catch (err) {
-      const timedOut = err?.name === 'AbortError';
-      const shouldRetry = attempt < FORWARD_WEBHOOK_MAX_ATTEMPTS;
-
-      logger.error('[WEBHOOK] Failed to forward to reseller webhook', {
-        correlationId,
-        orderId,
-        transactionStatus,
-        url: webhookUrl,
-        attempt,
-        error: timedOut ? 'request_timeout' : err?.message,
-        willRetry: shouldRetry,
-      });
-
-      if (shouldRetry) {
-        await waitForwardRetry(FORWARD_WEBHOOK_RETRY_DELAY_MS * attempt);
-        continue;
-      }
-
-      return false;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  return false;
-}
-
 async function forwardWebhookToStore(body, context = {}) {
-  const orderId = String(context.orderId || '');
-  if (orderId.startsWith('RS-')) {
-    return forwardToResellerWebhook(body, context);
-  } else {
-    return forwardToWebStoreWebhook(body, context);
-  }
+  // Reseller storefront has been retired; all forwarded webhooks go to the web store.
+  return forwardToWebStoreWebhook(body, context);
 }
 
 /**

@@ -69,14 +69,14 @@ export default function ProductCard({ product, variant = 'default', showBadge = 
         icon: 'error',
         title: 'Stok habis',
         text: 'Produk sudah tidak tersedia.',
-        confirmButtonColor: '#CB96BA',
+        confirmButtonColor: '#DB8291',
         background: '#ffffff',
-        color: '#3E2D3B',
+        color: '#720002',
         customClass: {
-          popup: 'rounded-2xl border border-[#F0E2EB] shadow-xl',
-          title: 'text-[#3E2D3B] font-bold font-fredoka',
-          htmlContainer: 'text-[#8E7188]',
-          confirmButton: 'rounded-xl px-5 py-2.5 font-bold bg-[#CB96BA] text-white shadow-md',
+          popup: 'rounded-2xl border border-[#F4D6DC] shadow-xl',
+          title: 'text-[#720002] font-bold font-fredoka',
+          htmlContainer: 'text-[#9E6B72]',
+          confirmButton: 'rounded-xl px-5 py-2.5 font-bold bg-[#DB8291] text-white shadow-md',
         },
         buttonsStyling: false,
       })
@@ -92,11 +92,11 @@ export default function ProductCard({ product, variant = 'default', showBadge = 
       timer: 1500,
       showConfirmButton: false,
       background: '#ffffff',
-      color: '#3E2D3B',
+      color: '#720002',
       customClass: {
-        popup: 'rounded-2xl border border-[#F0E2EB] shadow-xl',
-        title: 'text-[#3E2D3B] font-bold font-fredoka',
-        htmlContainer: 'text-[#8E7188]',
+        popup: 'rounded-2xl border border-[#F4D6DC] shadow-xl',
+        title: 'text-[#720002] font-bold font-fredoka',
+        htmlContainer: 'text-[#9E6B72]',
       },
     })
   }
@@ -107,7 +107,7 @@ export default function ProductCard({ product, variant = 'default', showBadge = 
       <Link href={`/product/${product.id}`}>
         <div className="peony-card flex-row items-center gap-4 text-left p-4 h-full">
           {/* Icon Box */}
-          <div className="w-20 h-20 rounded-2xl bg-[#F7F2F6] border-2 border-[#F0E2EB] p-2 flex items-center justify-center shrink-0">
+          <div className="w-20 h-20 rounded-2xl bg-[#FBEEF1] border-2 border-[#F4D6DC] p-2 flex items-center justify-center shrink-0">
             {product.ikon && !imgError ? (
               <Image
                 src={product.ikon}
@@ -119,19 +119,19 @@ export default function ProductCard({ product, variant = 'default', showBadge = 
                 unoptimized
               />
             ) : (
-              <i className="fa-solid fa-box-archive text-2xl text-[#CB96BA]"></i>
+              <i className="fa-solid fa-box-archive text-2xl text-[#DB8291]"></i>
             )}
           </div>
 
           <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-extrabold text-[#CB96BA] bg-[#F7F2F6] px-2.5 py-0.5 rounded-full inline-block mb-1">
+            <span className="text-[10px] font-extrabold text-[#DB8291] bg-[#FBEEF1] px-2.5 py-0.5 rounded-full inline-block mb-1">
               {formattedCategory}
             </span>
-            <h3 className="font-fredoka text-base text-[#3E2D3B] truncate">{product.nama}</h3>
+            <h3 className="font-fredoka text-base text-[#720002] truncate">{product.nama}</h3>
             <div className="flex items-center gap-2 mt-1">
-              <span className="font-extrabold text-sm text-[#CB96BA]">{formatPrice(price)}</span>
+              <span className="font-extrabold text-sm text-[#DB8291]">{formatPrice(price)}</span>
               {oldPrice && oldPrice > price && (
-                <span className="text-xs text-[#8E7188] line-through">{formatPrice(oldPrice)}</span>
+                <span className="text-xs text-[#9E6B72] line-through">{formatPrice(oldPrice)}</span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-2">
@@ -140,7 +140,7 @@ export default function ProductCard({ product, variant = 'default', showBadge = 
               }`}>
                 {product.stok > 0 ? `Ready (${product.stok})` : 'Habis'}
               </span>
-              <span className="text-[10px] text-[#8E7188] font-bold">★ {rating} ({soldCount})</span>
+              <span className="text-[10px] text-[#9E6B72] font-bold">★ {rating} ({soldCount})</span>
             </div>
           </div>
         </div>
@@ -148,70 +148,84 @@ export default function ProductCard({ product, variant = 'default', showBadge = 
     )
   }
 
-  // Default peonyrain.store Card Style
+  // Default marketplace card style
   return (
     <Link href={`/product/${product.id}`}>
-      <div className="peony-card relative flex flex-col items-center text-center p-5 h-full group">
-        {/* Top Badges */}
-        <div className="w-full flex items-center justify-between gap-1 absolute top-3.5 px-3.5 z-10">
-          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-[#F7F2F6] text-[#CB96BA] border border-[#F0E2EB] shadow-2xs">
-            {formattedCategory}
-          </span>
-          {discountPercent > 0 && (
-            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#D9777F] text-white">
-              -{discountPercent}%
+      <div className="peony-card !p-0 overflow-hidden flex flex-col items-stretch text-left h-full group">
+        {/* Media / thumbnail area */}
+        <div className="relative w-full aspect-square bg-gradient-to-br from-[#FBEEF1] to-[#F4D6DC] flex items-center justify-center overflow-hidden">
+          {/* Badges */}
+          <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between z-10">
+            <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-white/90 text-[#DB8291] border border-[#F4D6DC] shadow-sm backdrop-blur-sm">
+              {formattedCategory}
             </span>
-          )}
-        </div>
+            {discountPercent > 0 && (
+              <span className="text-[10px] font-black px-2 py-1 rounded-full bg-[#C81E3A] text-white shadow-sm">
+                -{discountPercent}%
+              </span>
+            )}
+          </div>
 
-        {/* Product Icon Frame */}
-        <div className="w-20 h-20 mt-6 mb-3 rounded-2xl bg-[#F7F2F6] border-2 border-[#F0E2EB] p-2.5 flex items-center justify-center shadow-xs transition-transform duration-300 group-hover:scale-105">
           {product.ikon && !imgError ? (
             <Image
               src={product.ikon}
               alt={product.nama}
-              width={70}
-              height={70}
-              className="object-contain max-h-full rounded-xl"
+              width={200}
+              height={200}
+              className="object-contain w-3/4 h-3/4 rounded-xl transition-transform duration-500 group-hover:scale-110"
               onError={() => setImgError(true)}
               unoptimized
             />
           ) : (
-            <i className="fa-solid fa-box-archive text-3xl text-[#CB96BA]"></i>
+            <i className="fa-solid fa-box-archive text-5xl text-[#DB8291]/60"></i>
+          )}
+
+          {product.stok === 0 && (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center">
+              <span className="px-3 py-1.5 rounded-full bg-[#720002] text-white text-xs font-extrabold">Stok Habis</span>
+            </div>
           )}
         </div>
 
-        {/* Title */}
-        <h3 className="font-fredoka text-lg text-[#3E2D3B] mb-1 line-clamp-2 leading-tight">
-          {product.nama}
-        </h3>
+        {/* Info */}
+        <div className="flex flex-col flex-1 p-3.5">
+          <h3 className="font-bold text-sm text-[#720002] line-clamp-2 leading-snug min-h-[2.4em]">
+            {product.nama}
+          </h3>
 
-        {/* Price Wrap */}
-        <div className="flex items-center justify-center gap-1.5 my-1 flex-wrap">
-          <span className="font-extrabold text-base text-[#CB96BA]">{formatPrice(price)}</span>
-          {discountPercent > 0 && oldPrice && (
-            <span className="text-xs text-[#8E7188] line-through">{formatPrice(oldPrice)}</span>
-          )}
+          {/* Rating + sold */}
+          <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-[#9E6B72] font-bold">
+            <span className="text-[#F5A623]"><i className="fa-solid fa-star"></i></span>
+            <span className="text-[#720002]">{rating}</span>
+            <span className="text-[#E7A6B1]">•</span>
+            <span>{soldCount} terjual</span>
+          </div>
+
+          {/* Price */}
+          <div className="flex items-baseline gap-1.5 mt-2 flex-wrap">
+            <span className="font-fredoka text-lg text-[#DB8291]">{formatPrice(price)}</span>
+            {discountPercent > 0 && oldPrice && (
+              <span className="text-[11px] text-[#9E6B72] line-through">{formatPrice(oldPrice)}</span>
+            )}
+          </div>
+
+          {/* Stock hint */}
+          <div className="mt-1.5">
+            <span className={`text-[10px] font-extrabold ${product.stok > 0 ? 'text-[#2E7D5B]' : 'text-[#C81E3A]'}`}>
+              {product.stok > 0 ? `${product.stok} stok tersedia` : 'Tidak tersedia'}
+            </span>
+          </div>
+
+          {/* Buy Button */}
+          <button
+            onClick={handleAddToCart}
+            disabled={product.stok === 0}
+            className={`btn-card-buy mt-3 ${product.stok === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <i className="fa-solid fa-cart-plus text-xs"></i>
+            {product.stok === 0 ? 'Habis' : 'Beli'}
+          </button>
         </div>
-
-        {/* Stock Badge */}
-        <div className="my-1">
-          <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold ${
-            product.stok > 0 ? 'bg-[#DCFCE7] text-[#15803D]' : 'bg-[#FFE4E6] text-[#BE123C]'
-          }`}>
-            {product.stok > 0 ? `Ready (${product.stok})` : 'Stok Habis'}
-          </span>
-        </div>
-
-        {/* Buy Button */}
-        <button
-          onClick={handleAddToCart}
-          disabled={product.stok === 0}
-          className={`btn-card-buy mt-3 ${product.stok === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <i className="fa-solid fa-cart-plus text-xs"></i>
-          {product.stok === 0 ? 'Stok Habis' : 'Beli Sekarang ✦'}
-        </button>
       </div>
     </Link>
   )
