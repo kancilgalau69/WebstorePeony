@@ -52,7 +52,7 @@ export interface AppSettings {
 }
 
 export const defaultSettings: AppSettings = {
-  store_name: 'Putra Btt Store',
+  store_name: 'Peony Store',
   store_description: 'Toko Digital Terpercaya #1',
   support_contact: '@aryadwinata543',
   catalog_banner_url: 'https://imgcdn.dev/i/YaULTN',

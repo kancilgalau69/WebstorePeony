@@ -511,7 +511,7 @@ function diagnoseProviderError(provider: EmailProvider, error: any): SmtpDiagnos
 }
 
 function resolveFromAddress(provider: EmailProvider = resolveEmailProvider()) {
-  const fallbackName = String(process.env.SMTP_FROM_NAME || 'Putra BTT Store').trim()
+  const fallbackName = String(process.env.SMTP_FROM_NAME || 'Peony Store').trim()
   const fromEmail = provider === 'resend'
     ? String(process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || '').trim()
     : String(process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || '').trim()

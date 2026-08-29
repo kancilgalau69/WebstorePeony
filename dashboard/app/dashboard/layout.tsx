@@ -143,7 +143,7 @@ export default function DashboardLayout({
         
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
-          {sidebarOpen && <span className="text-xl font-bold">Rain Store Admin</span>}
+          {sidebarOpen && <span className="text-xl font-bold">Peony Store Admin</span>}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1 hover:bg-gray-800 rounded"

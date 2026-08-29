@@ -208,7 +208,7 @@ function RegisterInner() {
                 value={token}
                 onChange={(e) => setToken(e.target.value.toUpperCase())}
                 className="w-full px-4 py-3 rounded-2xl border-2 border-[#DB8291] bg-white text-[#720002] font-mono font-extrabold text-sm tracking-wider outline-none focus:border-[#720002] uppercase"
-                placeholder="PBS-XXXX-XXXX"
+                placeholder="RAIN-XXXX-XXXX"
               />
               <p className="mt-1.5 text-[11px] font-bold text-[#9E6B72] bg-[#FBEEF1] border border-[#F4D6DC] rounded-xl px-3 py-2">
                 🔑 Token diberikan oleh admin. Hubungi admin untuk mendapatkan token pendaftaran.

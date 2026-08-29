@@ -1,6 +1,6 @@
-# Admin Dashboard PBS
+# Admin Dashboard Peony Store
 
-Admin Dashboard PBS adalah panel admin pusat untuk monorepo PBS Digital Store / KlikVirtual.ID.
+Admin Dashboard Peony Store adalah panel admin pusat untuk monorepo Peony Store.
 
 ## Ringkasan
 
@@ -17,7 +17,7 @@ Admin Dashboard PBS adalah panel admin pusat untuk monorepo PBS Digital Store / 
 - Kelola produk dan item digital.
 - Pantau order dan user.
 - Kelola reseller, affiliate, promo, broadcast, blog, backup, analytics, dan settings.
-- Menjadi sumber administrasi data untuk Telegram Bot, Web Store PBS, reseller, dan blog.
+- Menjadi sumber administrasi data untuk Telegram Bot, Web Store Peony Store, dan blog.
 
 ## Struktur
 

@@ -62,7 +62,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
             Total Revenue: Rp {data.revenue.toLocaleString('id-ID')}
           </p>
           <div className="pl-3 border-l-2 border-indigo-200 space-y-0.5 text-gray-500 text-xs">
-            <p>PBS Bot: Rp {data.pbsRevenue.toLocaleString('id-ID')}</p>
+            <p>Bot Telegram: Rp {data.pbsRevenue.toLocaleString('id-ID')}</p>
             <p>Web Store: Rp {data.webStoreRevenue.toLocaleString('id-ID')}</p>
             <p>Web Market: Rp {data.marketRevenue.toLocaleString('id-ID')}</p>
           </div>
@@ -73,7 +73,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
             Total Orders: {data.orders}
           </p>
           <div className="pl-3 border-l-2 border-green-200 space-y-0.5 text-gray-500 text-xs">
-            <p>PBS Bot: {data.pbsOrders} orders</p>
+            <p>Bot Telegram: {data.pbsOrders} orders</p>
             <p>Web Store: {data.webStoreOrders} orders</p>
             <p>Web Market: {data.marketOrders} orders</p>
           </div>
@@ -164,8 +164,8 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Welcome Section */}
       <div>
-        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Welcome to Admin Dashboard</h2>
-        <p className="text-sm md:text-base text-gray-600">Real-time analytics and management for your PBS Telegram Bot</p>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Selamat Datang di Peony Store Admin</h2>
+        <p className="text-sm md:text-base text-gray-600">Analitik &amp; manajemen real-time untuk Peony Store</p>
       </div>
 
       {/* Main Stats - 4 columns on desktop, 2 on mobile */}

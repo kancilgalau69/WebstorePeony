@@ -145,7 +145,7 @@ export default function SettingsPage() {
                 value={storeSettings.store_name}
                 onChange={(e) => setStoreSettings({ ...storeSettings, store_name: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="e.g., Putra Btt Store"
+                placeholder="e.g., Peony Store"
               />
             </div>
 

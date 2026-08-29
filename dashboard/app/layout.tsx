@@ -13,13 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Rain Store Dashboard",
-  description: "Dashboard untuk mengelola Rain Store",
+  title: "Peony Store Dashboard",
+  description: "Dashboard untuk mengelola Peony Store",
   manifest: "/manifest.webmanifest",
   themeColor: "#5c63f2",
   appleWebApp: {
     capable: true,
-    title: "Rain Store - Dashboard",
+    title: "Peony Store - Dashboard",
     statusBarStyle: "black-translucent",
   },
 };

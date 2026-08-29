@@ -98,17 +98,17 @@ export default function AnnouncementPopup() {
       case 'error':
         return {
           label: 'GANGGUAN',
-          badgeClass: 'bg-red-500 text-white',
+          badgeClass: 'bg-[#C81E3A] text-white',
         }
       case 'warning':
         return {
           label: 'PENTING',
-          badgeClass: 'bg-amber-500 text-white',
+          badgeClass: 'bg-[#DB8291] text-white',
         }
       default:
         return {
-          label: 'LAYANAN',
-          badgeClass: 'bg-[#10b981] text-white', // Green brand color as in user's screenshot
+          label: 'INFO',
+          badgeClass: 'bg-[#720002] text-white',
         }
     }
   }
@@ -144,27 +144,27 @@ export default function AnnouncementPopup() {
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300"
+        className="fixed inset-0 bg-[#720002]/50 backdrop-blur-sm transition-opacity duration-300"
         onClick={handleClose}
       />
 
       {/* Modal Box */}
       <div
-        className={`relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col transition-all duration-300 max-h-[85vh] md:max-h-[80vh] ${
+        className={`relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border-2 border-[#F4D6DC] flex flex-col transition-all duration-300 max-h-[85vh] md:max-h-[80vh] ${
           isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F4D6DC] bg-[#FBEEF1] flex-shrink-0">
           <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-primary-50 text-primary-500 flex items-center justify-center text-base">
+            <span className="w-9 h-9 rounded-xl strawberry-gradient text-white flex items-center justify-center text-base shadow-sm">
               <i className="fa-solid fa-bullhorn text-sm"></i>
             </span>
-            <h2 className="font-bold text-gray-900 text-sm md:text-base">Informasi Terbaru</h2>
+            <h2 className="font-fredoka text-[#720002] text-base md:text-lg">Informasi Terbaru</h2>
           </div>
           <button
             onClick={handleClose}
-            className="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center"
+            className="w-8 h-8 rounded-lg hover:bg-[#F4D6DC] text-[#9E6B72] hover:text-[#720002] transition-colors flex items-center justify-center"
             aria-label="Tutup"
           >
             <i className="fa-solid fa-xmark text-sm"></i>
@@ -173,11 +173,11 @@ export default function AnnouncementPopup() {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-6 py-2 scroll-container">
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-[#F4D6DC]">
             {announcements.map((a) => {
               const catDetails = getCategoryDetails(a.category)
               return (
-                <div key={a.id} className="py-5 first:pt-2 last:pb-4 flex flex-col gap-2">
+                <div key={a.id} className="py-5 first:pt-4 last:pb-4 flex flex-col gap-2">
                   {/* Category & Date */}
                   <div className="flex items-center justify-between">
                     <span
@@ -185,21 +185,26 @@ export default function AnnouncementPopup() {
                     >
                       {catDetails.label}
                     </span>
-                    <span className="text-[10px] text-gray-400 font-semibold">
+                    <span className="text-[10px] text-[#9E6B72] font-semibold">
                       {formatAnnouncementDate(a.created_at)}
                     </span>
                   </div>
 
+                  {/* Title */}
+                  {a.title && (
+                    <h3 className="font-fredoka text-[#720002] text-base leading-snug">{a.title}</h3>
+                  )}
+
                   {/* Body Text */}
                   {a.body && (
-                    <div className="text-xs md:text-sm text-gray-600 leading-relaxed whitespace-pre-wrap mt-1">
+                    <div className="text-xs md:text-sm text-[#8A3A44] leading-relaxed whitespace-pre-wrap">
                       {a.body}
                     </div>
                   )}
 
                   {/* Image */}
                   {a.image_url && (
-                    <div className="mt-2 rounded-xl overflow-hidden shadow-sm max-h-64 border border-gray-100 bg-gray-50 flex justify-center items-center">
+                    <div className="mt-2 rounded-2xl overflow-hidden shadow-sm max-h-64 border border-[#F4D6DC] bg-[#FBEEF1] flex justify-center items-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={a.image_url}
@@ -216,7 +221,7 @@ export default function AnnouncementPopup() {
                         href={a.button_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 text-primary-600 hover:text-primary-700 font-bold text-xs transition-colors"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full strawberry-gradient text-white font-bold text-xs shadow-sm hover:-translate-y-0.5 transition-transform"
                       >
                         {a.button_label}
                         <i className="fa-solid fa-chevron-right text-[9px]"></i>
@@ -230,10 +235,10 @@ export default function AnnouncementPopup() {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end flex-shrink-0">
+        <div className="px-6 py-4 border-t border-[#F4D6DC] bg-[#FBEEF1] flex justify-end flex-shrink-0">
           <button
             onClick={handleClose}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 active:bg-primary-700 text-white font-bold text-xs md:text-sm rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 strawberry-gradient text-white font-extrabold text-xs md:text-sm rounded-full shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
           >
             <i className="fa-solid fa-thumbs-up text-xs md:text-sm"></i>
             Sudah membaca

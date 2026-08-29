@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
         const tableDefs = await introspectSchema(supabaseUrl, serviceKey)
         const lines: string[] = []
         lines.push(`-- ============================================`)
-        lines.push(`-- PBS Digital Store - Database Schema`)
+        lines.push(`-- Peony Store - Database Schema`)
         lines.push(`-- Generated: ${new Date().toISOString()}`)
         lines.push(`-- ============================================\n`)
 
@@ -248,7 +248,7 @@ export async function GET(req: NextRequest) {
         const tableDefs = await introspectSchema(supabaseUrl, serviceKey)
         const lines: string[] = []
         lines.push(`-- ============================================`)
-        lines.push(`-- PBS Digital Store - Full Database Backup`)
+        lines.push(`-- Peony Store - Full Database Backup`)
         lines.push(`-- Generated: ${new Date().toISOString()}`)
         lines.push(`-- ============================================\n`)
 

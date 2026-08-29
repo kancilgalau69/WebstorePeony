@@ -12,7 +12,7 @@ function jsonNoStore(payload: any, status = 200) {
   })
 }
 
-// Generate a human-friendly token like PBS-XXXX-XXXX (no ambiguous chars).
+// Generate a human-friendly token like RAIN-XXXX-XXXX (no ambiguous chars).
 function generateToken(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   const bytes = randomBytes(8)
@@ -21,7 +21,7 @@ function generateToken(): string {
     out += alphabet[bytes[i] % alphabet.length]
     if (i === 3) out += '-'
   }
-  return `PBS-${out}`
+  return `RAIN-${out}`
 }
 
 // GET - list all registration tokens (newest first)

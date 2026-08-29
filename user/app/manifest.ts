@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Putra BTT Store',
-    short_name: 'Putra BTT',
-    description: 'Toko online Putra BTT Store dengan berbagai produk digital premium',
+    name: 'Peony Store',
+    short_name: 'Peony Store',
+    description: 'Toko online Peony Store dengan berbagai produk digital premium',
     start_url: '/',
     display: 'standalone',
     background_color: '#0f1229',

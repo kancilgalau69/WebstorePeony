@@ -58,7 +58,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-12 h-12 bg-indigo-600 rounded-xl mb-4">
               <FiLock className="text-white text-xl" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+            <h1 className="text-xl font-bold text-gray-900">Peony Store Admin</h1>
             <p className="text-gray-500 text-sm mt-1">Masuk untuk melanjutkan</p>
           </div>
 
@@ -126,7 +126,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-4">
-          PBS Admin Panel
+          Peony Store Admin Panel
         </p>
       </div>
     </div>

@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Putra BTT Store - Dashboard',
-    short_name: 'PBS Dashboard',
-    description: 'Dashboard untuk mengelola Putra BTT Store Bot dan WEB',
+    name: 'Peony Store - Dashboard',
+    short_name: 'Peony Dashboard',
+    description: 'Dashboard untuk mengelola Peony Store Bot dan WEB',
     start_url: '/dashboard',
     display: 'standalone',
     background_color: '#0f1229',
