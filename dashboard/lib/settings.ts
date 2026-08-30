@@ -34,7 +34,6 @@ export interface AppSettings {
   items_per_page: number
   grid_cols: number
   enable_promo: boolean
-  enable_referral: boolean
   enable_analytics: boolean
   enable_favorites: boolean
   payment_ttl_minutes: number
@@ -59,7 +58,6 @@ export const defaultSettings: AppSettings = {
   items_per_page: 10,
   grid_cols: 5,
   enable_promo: true,
-  enable_referral: true,
   enable_analytics: true,
   enable_favorites: true,
   payment_ttl_minutes: 15,
@@ -97,7 +95,7 @@ export async function getSettings(): Promise<AppSettings> {
         settings[key] = parseInt(value, 10)
       } else if (key === 'market_gateway_fee_percent' || key === 'market_platform_fee_percent' || key === 'market_platform_fee_seller_percent' || key === 'market_platform_fee_customer_percent') {
         settings[key] = parseFloat(value)
-      } else if (key === 'enable_promo' || key === 'enable_referral' || key === 'enable_analytics' || key === 'enable_favorites') {
+      } else if (key === 'enable_promo' || key === 'enable_analytics' || key === 'enable_favorites') {
         settings[key] = value === 'true'
       } else {
         // @ts-ignore

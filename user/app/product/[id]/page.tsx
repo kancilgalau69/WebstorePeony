@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '@/components/CartProvider'
-import { useAuth } from '@/components/AuthProvider'
 import { Database } from '@/lib/database.types'
 import { resolveWebPrice } from '@/lib/pricing'
 import { formatCategoryName } from '@/lib/categories'
@@ -16,53 +15,17 @@ type Product = Database['public']['Tables']['products']['Row']
 export default function ProductDetail() {
   const params = useParams()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { addToCart } = useCart()
-  const { user } = useAuth()
   const [product, setProduct] = useState<Product | null>(null)
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
   const [imgError, setImgError] = useState(false)
-  const [shareMenuOpen, setShareMenuOpen] = useState(false)
-  const [myAffiliateCode, setMyAffiliateCode] = useState<string | null>(null)
-
   const getProductPrice = (p: Product) => resolveWebPrice(p as any)
 
   useEffect(() => {
     fetchProduct()
   }, [params.id])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const ref = searchParams.get('ref')
-    if (ref && ref.trim()) {
-      const code = ref.trim().toUpperCase()
-      try {
-        window.sessionStorage.setItem('pbs_aff_ref', code)
-      } catch {}
-      fetch('/api/affiliate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ affiliate_code: code, product_id: params.id }),
-      }).catch(() => {})
-    }
-  }, [searchParams, params.id])
-
-  useEffect(() => {
-    if (!user) {
-      setMyAffiliateCode(null)
-      return
-    }
-    fetch('/api/affiliate', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.enabled && data?.affiliate?.affiliate_code) {
-          setMyAffiliateCode(data.affiliate.affiliate_code)
-        }
-      })
-      .catch(() => {})
-  }, [user])
 
   async function fetchProduct() {
     try {
@@ -149,12 +112,9 @@ export default function ProductDetail() {
     }
   }
 
-  const handleShare = async (variant: 'plain' | 'affiliate' = 'plain') => {
+  const handleShare = async () => {
     if (!product) return
-    const base = window.location.origin + window.location.pathname
-    const url = variant === 'affiliate' && myAffiliateCode
-      ? `${base}?ref=${myAffiliateCode}`
-      : base
+    const url = window.location.origin + window.location.pathname
     const text = `${product.nama} - ${formatPrice(getProductPrice(product))}`
 
     if (navigator.share) {
@@ -166,7 +126,6 @@ export default function ProductDetail() {
     } else {
       copyToClipboard(url)
     }
-    setShareMenuOpen(false)
   }
 
   const copyToClipboard = (text: string) => {
@@ -303,7 +262,7 @@ export default function ProductDetail() {
           </div>
 
           <button
-            onClick={() => myAffiliateCode ? setShareMenuOpen(true) : handleShare('plain')}
+            onClick={() => handleShare()}
             className="absolute top-4 right-4 w-10 h-10 rounded-2xl bg-[#FBEEF1] border border-[#F4D6DC] flex items-center justify-center text-[#9E6B72] hover:text-[#DB8291] transition-all"
             title="Bagikan produk"
           >
@@ -414,7 +373,7 @@ export default function ProductDetail() {
             </div>
 
             <button
-              onClick={() => myAffiliateCode ? setShareMenuOpen(true) : handleShare('plain')}
+              onClick={() => handleShare()}
               className="w-full py-2.5 px-4 rounded-xl border border-[#F4D6DC] bg-[#FBEEF1] text-[#9E6B72] font-extrabold text-xs hover:text-[#DB8291] transition-all flex items-center justify-center gap-1.5"
             >
               <i className="fa-solid fa-share-nodes"></i> Bagikan Produk
@@ -433,36 +392,6 @@ export default function ProductDetail() {
             ))}
           </div>
         </section>
-      )}
-
-      {/* Share Modal */}
-      {shareMenuOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShareMenuOpen(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-md p-6 border-2 border-[#F4D6DC] shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-fredoka text-xl text-[#720002]">Bagikan Produk 🌸</h3>
-              <button onClick={() => setShareMenuOpen(false)} className="text-[#9E6B72] hover:text-[#720002]">
-                <i className="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => handleShare('plain')}
-                className="w-full p-4 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] font-extrabold text-xs text-[#720002] text-left hover:border-[#DB8291]"
-              >
-                🔗 Link Produk Biasa
-              </button>
-              {myAffiliateCode && (
-                <button
-                  onClick={() => handleShare('affiliate')}
-                  className="w-full p-4 rounded-2xl border-2 border-[#DB8291] bg-gradient-to-r from-[#F4D6DC] to-[#FBEEF1] font-extrabold text-xs text-[#720002] text-left"
-                >
-                  💖 Link Affiliate (?ref={myAffiliateCode})
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )

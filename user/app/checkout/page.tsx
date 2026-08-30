@@ -214,13 +214,6 @@ export default function CheckoutPage() {
     setIsProcessingPayment(true)
 
     try {
-      let affiliateCode: string | null = null
-      try {
-        if (typeof window !== 'undefined') {
-          affiliateCode = window.sessionStorage.getItem('pbs_aff_ref')
-        }
-      } catch {}
-
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: {
@@ -232,7 +225,6 @@ export default function CheckoutPage() {
           customerEmail: normalizedCustomerEmail,
           customerPhone: normalizedCustomerPhone,
           captchaToken,
-          ...(affiliateCode ? { affiliateCode } : {}),
           ...(appliedPromo ? { promoCode: appliedPromo.code, promoDiscount: appliedPromo.discount_amount } : {}),
           // Reuse the previewed Qiospay admin fee so the charged total matches what was shown.
           ...(paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee ? { qiospayAdminFee: paymentInfo.adminFee } : {}),

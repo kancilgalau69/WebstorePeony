@@ -16,7 +16,6 @@ const defaultSettings = {
   items_per_page: parseInt(process.env.ITEMS_PER_PAGE || '10'),
   grid_cols: parseInt(process.env.GRID_COLS || '5'),
   enable_promo: process.env.ENABLE_PROMO === 'true',
-  enable_referral: process.env.ENABLE_REFERRAL === 'true',
   enable_analytics: process.env.ENABLE_ANALYTICS === 'true',
   enable_favorites: process.env.ENABLE_FAVORITES === 'true',
   payment_ttl_minutes: parseInt(process.env.PAYMENT_TTL_MS || '900000') / 60000,
@@ -52,7 +51,7 @@ export async function getAppSettings() {
       // Parse value based on key
       if (key === 'items_per_page' || key === 'grid_cols' || key === 'payment_ttl_minutes') {
         settings[key] = parseInt(value, 10);
-      } else if (key === 'enable_promo' || key === 'enable_referral' || key === 'enable_analytics' || key === 'enable_favorites') {
+      } else if (key === 'enable_promo' || key === 'enable_analytics' || key === 'enable_favorites') {
         settings[key] = value === 'true';
       } else {
         settings[key] = value;

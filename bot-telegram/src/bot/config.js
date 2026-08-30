@@ -43,7 +43,6 @@ export const BOT_CONFIG = {
   
   // Features
   ENABLE_PROMO: bool(process.env.ENABLE_PROMO, true),
-  ENABLE_REFERRAL: bool(process.env.ENABLE_REFERRAL, true),
   ENABLE_ANALYTICS: bool(process.env.ENABLE_ANALYTICS, true),
   ENABLE_FAVORITES: bool(process.env.ENABLE_FAVORITES, true),
   

@@ -302,19 +302,6 @@ export default function SettingsPage() {
             <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition">
               <input
                 type="checkbox"
-                checked={storeSettings.enable_referral}
-                onChange={(e) => setStoreSettings({ ...storeSettings, enable_referral: e.target.checked })}
-                className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-              />
-              <div>
-                <span className="text-sm font-medium text-gray-900">Referral System</span>
-                <p className="text-xs text-gray-500">User referrals & rewards</p>
-              </div>
-            </label>
-
-            <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-gray-50 rounded-lg transition">
-              <input
-                type="checkbox"
                 checked={storeSettings.enable_analytics}
                 onChange={(e) => setStoreSettings({ ...storeSettings, enable_analytics: e.target.checked })}
                 className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"

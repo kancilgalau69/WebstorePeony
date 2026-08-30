@@ -484,11 +484,10 @@ export async function POST(request: NextRequest) {
 
     // 1. Parse body
     const body = await request.json()
-    const { items: rawItems, customerName, customerEmail, customerPhone, captchaToken, affiliateCode: rawAffiliateCode } = body
+    const { items: rawItems, customerName, customerEmail, customerPhone, captchaToken } = body
     const normalizedCustomerName = String(customerName || '').trim()
     const normalizedCustomerEmail = normalizeCustomerEmail(customerEmail)
     const normalizedCustomerPhone = String(customerPhone || '').trim()
-    const normalizedAffiliateCode = String(rawAffiliateCode || '').trim().toUpperCase()
 
     // Get client metadata
     const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -817,7 +816,6 @@ export async function POST(request: NextRequest) {
         items: dbOrderItems,
         promo_code: rawPromoCodeForPreCharge || null,
         promo_discount: preChargePromoDiscount,
-        affiliate_code: normalizedAffiliateCode || null,
         user_ref: `web:${sessionUser.userId}`,
         paid_at: new Date().toISOString(),
       })
@@ -1012,7 +1010,6 @@ export async function POST(request: NextRequest) {
           items: dbOrderItems,
           promo_code: rawPromoCodeForPreCharge || null,
           promo_discount: preChargePromoDiscount,
-          affiliate_code: normalizedAffiliateCode || null,
           user_ref: sessionUser ? `web:${sessionUser.userId}` : null,
           expired_at: new Date(Date.now() + 15 * 60000).toISOString(),
         })
@@ -1148,7 +1145,6 @@ export async function POST(request: NextRequest) {
           items: dbOrderItems,
           promo_code: rawPromoCodeForPreCharge || null,
           promo_discount: preChargePromoDiscount,
-          affiliate_code: normalizedAffiliateCode || null,
           user_ref: sessionUser ? `web:${sessionUser.userId}` : null,
           expired_at: new Date(Date.now() + 15 * 60000).toISOString(),
         })
@@ -1566,32 +1562,6 @@ export async function POST(request: NextRequest) {
         itemCount: itemsArray.length,
       })
 
-      // Resolve affiliate code to affiliate_id (if valid and not self-referral)
-      let resolvedAffiliateId: string | null = null
-      let resolvedAffiliateCode: string | null = null
-      if (normalizedAffiliateCode) {
-        try {
-          const { data: affiliateRow } = await supabase
-            .from('user_web_affiliates')
-            .select('id, user_web_id, is_active')
-            .eq('affiliate_code', normalizedAffiliateCode)
-            .single()
-
-          if (affiliateRow && affiliateRow.is_active) {
-            // Prevent self-referral (user buying via own link)
-            const isSelfReferral = sessionUser?.userId && affiliateRow.user_web_id === sessionUser.userId
-            if (!isSelfReferral) {
-              resolvedAffiliateId = affiliateRow.id
-              resolvedAffiliateCode = normalizedAffiliateCode
-            } else {
-              logInfo('CHECKOUT', 'Self-referral ignored', { orderId, affiliateCode: normalizedAffiliateCode })
-            }
-          }
-        } catch (err: any) {
-          logWarn('CHECKOUT', 'Affiliate resolve failed', { orderId, error: err?.message })
-        }
-      }
-
       const { data: insertedOrder, error: insertError } = await supabase
         .from('orders')
         .insert({
@@ -1610,8 +1580,6 @@ export async function POST(request: NextRequest) {
           // user_id nullable untuk web (telegram bot users)
           // user_web_id links to registered web user account
           ...(sessionUser?.userId ? { user_web_id: sessionUser.userId } : {}),
-          // Affiliate tracking
-          ...(resolvedAffiliateId ? { affiliate_id: resolvedAffiliateId, affiliate_code: resolvedAffiliateCode } : {}),
           // Promo tracking
           ...(appliedPromoCode ? { promo_code: appliedPromoCode, promo_discount: promoDiscount, promo_reward_product: promoRewardProductName } : {}),
         })
