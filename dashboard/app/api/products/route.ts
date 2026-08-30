@@ -16,6 +16,13 @@ type StableSnapshotState = {
 
 let stableSnapshotState: StableSnapshotState | null = null
 
+// Clear the anti-flicker snapshot cache so the next GET reflects the DB
+// immediately. Called after every admin mutation (POST/PUT/DELETE) so a
+// deliberate change (e.g. toggling `aktif`) is never masked by stabilization.
+function resetSnapshotStability() {
+  stableSnapshotState = null
+}
+
 function hashSnapshot(data: any[]) {
   return crypto.createHash('sha1').update(JSON.stringify(data || [])).digest('hex')
 }
@@ -194,6 +201,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) return jsonNoStore({ error: error.message || JSON.stringify(error) }, 400)
+    resetSnapshotStability()
     return jsonNoStore({ data })
   } catch (err: any) {
     return jsonNoStore({ error: err?.message || 'Failed to create product' }, 500)
@@ -217,6 +225,7 @@ export async function PUT(req: NextRequest) {
       .single()
 
     if (error) return jsonNoStore({ error: error.message || JSON.stringify(error) }, 400)
+    resetSnapshotStability()
     return jsonNoStore({ data })
   } catch (err: any) {
     return jsonNoStore({ error: err?.message || 'Failed to update product' }, 500)

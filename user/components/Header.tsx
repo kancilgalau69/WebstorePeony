@@ -18,7 +18,7 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Product[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const searchRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLElement>(null)
 
   // Close search when clicking outside
   useEffect(() => {
@@ -72,7 +72,7 @@ export default function Header() {
   }
 
   return (
-    <header className="w-full pt-4 md:pt-6 px-4 z-50 fixed top-0 left-0 right-0">
+    <header ref={searchRef} className="w-full pt-4 md:pt-6 px-4 z-50 fixed top-0 left-0 right-0">
       {/* ── Floating Pill Navigation Bar ── */}
       <nav className="max-w-[900px] mx-auto bg-white/90 backdrop-blur-md border border-[#F4D6DC] shadow-sm rounded-full px-4 md:px-6 py-2.5 flex items-center justify-between">
         {/* Brand logo */}
@@ -131,7 +131,7 @@ export default function Header() {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 shrink-0" ref={searchRef}>
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleSearchClick}
             className="p-2 rounded-full text-[#9E6B72] hover:text-[#DB8291] transition-all"
@@ -202,15 +202,11 @@ export default function Header() {
                     {searchResults.map((product) => (
                       <Link
                         key={product.id}
-                        href={`/?search=${encodeURIComponent(searchQuery)}#products`}
+                        href={`/product/${product.id}`}
                         onClick={() => {
                           setIsSearchOpen(false)
-                          setTimeout(() => {
-                            const productsSection = document.getElementById('products')
-                            if (productsSection) {
-                              productsSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                            }
-                          }, 100)
+                          setSearchQuery('')
+                          setSearchResults([])
                         }}
                         className="flex items-center justify-between p-3 hover:bg-[#FBEEF1] transition-colors"
                       >

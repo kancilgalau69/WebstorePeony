@@ -1,34 +1,61 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "9router": {
-      "npm": "@ai-sdk/openai-compatible",
-      "options": {
-        "baseURL": "https://www.genspark.ai/api/llm_proxy/v1",
-        "apiKey": "gsk-eyJjb2dlbl9pZCI6ImZmYmNhYTY1LTU5YWUtNGEzYi1hYTRkLTYwNWU4NTljOWI0MiIsImtleV9pZCI6IjE1MzBhODQ4LTk2MTQtNDVmZS05MjNkLWUyMTE3ODhhOWE3ZCIsImN0aW1lIjoxNzg4MDIwMTYzLCJjbGF1ZGVfYmlnX21vZGVsIjpudWxsLCJjbGF1ZGVfbWlkZGxlX21vZGVsIjpudWxsLCJjbGF1ZGVfc21hbGxfbW9kZWwiOm51bGx9fJlzQ9pDQ6aPwFKwnYYG9FjjIY5V5K6aZ6I8EAwXB7KR"
+  "ghrocx": {
+    "npm": "@ai-sdk/openai-compatible",
+    "name": "Ghrocx",
+    "options": {
+      "baseURL": "https://api.ghrocx.my.id/v1",
+      "apiKey": "YOUR_API_KEY"
+    },
+    "models": {
+      "ghrocx/deepseek-v4-flash": {
+        "name": "DeepSeek V4 Flash"
       },
-      "models": {
-        "claude-opus-4-8": {
-          "name": "claude-opus-4-8",
-          "modalities": {
-            "input": [
-              "text",
-              "image"
-            ],
-            "output": [
-              "text"
-            ]
-          }
-        }
+      "ghrocx/deepseek-v4-pro": {
+        "name": "DeepSeek V4 Pro"
+      },
+      "ghrocx/fable-5": {
+        "name": "Claude Fable 5"
+      },
+      "ghrocx/glm-5.3": {
+        "name": "GLM 5.3"
+      },
+      "ghrocx/glm-5.3-flash": {
+        "name": "GLM 5.3 Flash"
+      },
+      "ghrocx/gpt-5.5": {
+        "name": "GPT 5.5"
+      },
+      "ghrocx/gpt-5.6-luna": {
+        "name": "GPT 5.6 Luna"
+      },
+      "ghrocx/gpt-5.6-sol": {
+        "name": "GPT 5.6 Sol"
+      },
+      "ghrocx/gpt-5.6-terra": {
+        "name": "GPT 5.6 Terra"
+      },
+      "ghrocx/grok-4.5": {
+        "name": "Grok 4.5"
+      },
+      "ghrocx/grok-4.6": {
+        "name": "Grok 4.6"
+      },
+      "ghrocx/haiku-4.5": {
+        "name": "Claude Haiku 4.5"
+      },
+      "ghrocx/kimi-k2.5": {
+        "name": "Kimi K2.5"
+      },
+      "ghrocx/opus-5": {
+        "name": "Claude Opus 5"
+      },
+      "ghrocx/qwen3.8-max-preview": {
+        "name": "Qwen3.8 Max Preview"
+      },
+      "ghrocx/sonnet-5": {
+        "name": "Claude Sonnet 5"
       }
-    }
-  },
-  "model": "9router/claude-opus-4-8",
-  "agent": {
-    "explorer": {
-      "description": "Fast explorer subagent for codebase exploration",
-      "mode": "subagent",
-      "model": "9router/claude-opus-4-8"
     }
   }
 }

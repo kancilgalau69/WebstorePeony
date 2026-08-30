@@ -34,6 +34,9 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const requestSeqRef = useRef(0)
+  // While set to a future timestamp, background refetches (realtime/interval) are
+  // skipped so a just-toggled row isn't reverted by a stale read.
+  const suppressRefetchUntilRef = useRef(0)
   const [formData, setFormData] = useState<Database['public']['Tables']['products']['Insert']>({
     kode: '',
     nama: '',
@@ -51,16 +54,16 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts()
     // Auto-refresh every 30 seconds as fallback
-    const interval = setInterval(() => fetchProducts(), 30_000)
+    const interval = setInterval(() => fetchProducts({ background: true }), 30_000)
 
     // Supabase Realtime: auto-refresh on any products table change
     const channel = supabase
       .channel('products-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        fetchProducts()
+        fetchProducts({ background: true })
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'product_items' }, () => {
-        fetchProducts()
+        fetchProducts({ background: true })
       })
       .subscribe()
 
@@ -74,7 +77,11 @@ export default function ProductsPage() {
     setCurrentPage(1)
   }, [searchQuery, statusFilter, nameSort])
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (opts: { background?: boolean } = {}) => {
+    // Skip background refreshes during the post-toggle suppress window.
+    if (opts.background && Date.now() < suppressRefetchUntilRef.current) {
+      return
+    }
     const requestSeq = ++requestSeqRef.current
 
     try {
@@ -305,6 +312,10 @@ export default function ProductsPage() {
   const handleQuickToggleActive = async (product: ProductWithItemCount) => {
     const nextActive = !(product.aktif === true)
 
+    // Suppress realtime/interval refetch briefly so a momentarily-stale read
+    // from the API doesn't visually revert the toggle we just confirmed.
+    suppressRefetchUntilRef.current = Date.now() + 4000
+
     // Optimistic update: update UI immediately
     setProducts(prev => prev.map(p =>
       p.id === product.id ? { ...p, aktif: nextActive } : p
@@ -319,15 +330,25 @@ export default function ProductsPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error || 'Failed to update status')
 
+      // Trust the DB-confirmed row returned by the API (authoritative).
+      const confirmedActive = json?.data?.aktif
+      if (typeof confirmedActive === 'boolean') {
+        setProducts(prev => prev.map(p =>
+          p.id === product.id ? { ...p, aktif: confirmedActive } : p
+        ))
+      }
+
       showToast(`Produk ${nextActive ? 'diaktifkan' : 'dinonaktifkan'}`)
 
-      // Refresh in background (non-blocking)
-      fetchProducts()
+      // NOTE: no immediate fetchProducts() here — the GET can return a
+      // read-replica-lagged `aktif` and visually revert the toggle. The 30s
+      // interval + realtime (after the suppress window) will reconcile.
 
       try {
         fetch('/api/bot/refresh', { method: 'POST' })
       } catch {}
     } catch (error: any) {
+      suppressRefetchUntilRef.current = 0
       // Revert optimistic update on error
       setProducts(prev => prev.map(p =>
         p.id === product.id ? { ...p, aktif: !nextActive } : p
