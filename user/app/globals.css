@@ -288,3 +288,18 @@ body {
   color: #720002;
   border: 1px solid rgba(219,130,145,0.35);
 }
+
+/* Ticket Shape */
+.ticket-wrapper {
+  filter: drop-shadow(0 4px 10px rgba(219,130,145,0.3));
+}
+.ticket-shape {
+  -webkit-mask: radial-gradient(circle at 0 50%, transparent 24px, black 25px) left,
+                radial-gradient(circle at 100% 50%, transparent 24px, black 25px) right;
+  -webkit-mask-size: 51% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask: radial-gradient(circle at 0 50%, transparent 24px, black 25px) left,
+        radial-gradient(circle at 100% 50%, transparent 24px, black 25px) right;
+  mask-size: 51% 100%;
+  mask-repeat: no-repeat;
+}

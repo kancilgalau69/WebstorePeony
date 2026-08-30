@@ -230,10 +230,6 @@ function OrderSuccessInner() {
     lines.push('🌸 PEONY STORE — BUKTI PEMBELIAN')
     lines.push('━━━━━━━━━━━━━━━━━━━━━')
     lines.push(`🧾 Order ID : ${orderDetails.orderId}`)
-    if (orderDetails.customerName) lines.push(`👤 Nama     : ${orderDetails.customerName}`)
-    lines.push(`🗓️ Waktu    : ${formatDateTime(orderDetails.transactionTime)}`)
-    lines.push(`💰 Total    : ${formatPrice(orderDetails.amount)}`)
-    lines.push(`✅ Status   : ${isCompleted ? 'LUNAS / BERHASIL' : String(orderDetails.status || '').toUpperCase()}`)
     lines.push('')
 
     const items = orderDetails.items || []
@@ -241,7 +237,6 @@ function OrderSuccessInner() {
       const name = item.product_name || item.name || 'Produk'
       lines.push('━━━━━━━━━━━━━━━━━━━━━')
       lines.push(`📦 ${idx + 1}. ${name}`)
-      lines.push(`   Qty: ${item.quantity}x @ ${formatPrice(item.price)}  =  ${formatPrice((item.price || 0) * (item.quantity || 1))}`)
 
       // Split into individual lines (handles both newlines and "||" separators),
       // so every credential line stays neatly indented under the item.
@@ -253,22 +248,19 @@ function OrderSuccessInner() {
         : []
       if (dataArr.length > 0) {
         lines.push('')
-        lines.push('   🔑 Detail Akun / Kode:')
-        dataArr.forEach((d: string) => lines.push(`   • ${d}`))
+        lines.push('🔑 Detail Akun / Item:')
+        dataArr.forEach((d: string) => lines.push(d))
       }
 
       const notes = splitNotes(item.product_notes)
       if (notes.length > 0) {
         lines.push('')
-        lines.push('   📌 Ketentuan (S&K):')
-        notes.forEach((n: string) => lines.push(`   - ${n}`))
+        lines.push('📌 Ketentuan Produk:')
+        notes.forEach((n: string) => lines.push(n))
       }
       lines.push('')
     })
 
-    lines.push('━━━━━━━━━━━━━━━━━━━━━')
-    lines.push('🙏 Terima kasih telah berbelanja di Peony Store!')
-    lines.push('💬 Bantuan: chat admin via WhatsApp.')
     return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   }
 
@@ -412,11 +404,11 @@ function OrderSuccessInner() {
                         {notesList.length > 0 && (
                           <div className="pt-2 border-t border-[#F4D6DC]">
                             <p className="text-xs font-extrabold text-[#720002]">Ketentuan Produk:</p>
-                            <ul className="text-xs text-[#9E6B72] list-disc list-inside mt-1 space-y-0.5">
+                            <div className="text-xs text-[#9E6B72] mt-1 space-y-0.5">
                               {notesList.map((n: string, i: number) => (
-                                <li key={i}>{n}</li>
+                                <p key={i}>{n}</p>
                               ))}
-                            </ul>
+                            </div>
                           </div>
                         )}
                       </div>

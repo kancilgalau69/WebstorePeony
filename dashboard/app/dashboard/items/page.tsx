@@ -76,7 +76,10 @@ export default function ProductItemsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [newItems, setNewItems] = useState('')
   const [batchName, setBatchName] = useState('')
-  const [itemNotes, setItemNotes] = useState('')
+  const [itemNotes, setItemNotes] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    try { return localStorage.getItem('lastItemNotes') || '' } catch { return '' }
+  })
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -355,9 +358,11 @@ export default function ProductItemsPage() {
 
       if (insertError) throw insertError
 
+      // Remember the last used note/S&K so it's pre-filled next time
+      try { localStorage.setItem('lastItemNotes', itemNotes.trim()) } catch {}
+
       setNewItems('')
       setBatchName('')
-      setItemNotes('')
       setShowAddModal(false)
       await fetchItems(selectedProduct)
       alert(`Successfully added ${itemLines.length} items!`)
@@ -1257,7 +1262,6 @@ export default function ProductItemsPage() {
                   setShowAddModal(false)
                   setNewItems('')
                   setBatchName('')
-                  setItemNotes('')
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
               >
@@ -1315,11 +1319,25 @@ export default function ProductItemsPage() {
 
               {/* Notes / After Message */}
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-900">
-                  Notes / After-Purchase Message <span className="text-gray-400 font-normal">(Optional)</span>
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-gray-900">
+                    Notes / After-Purchase Message <span className="text-gray-400 font-normal">(Optional)</span>
+                  </label>
+                  {itemNotes.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setItemNotes('')
+                        try { localStorage.removeItem('lastItemNotes') } catch {}
+                      }}
+                      className="text-xs font-medium text-red-500 hover:text-red-600"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <p className="text-xs text-gray-600">
-                  Add notes for internal use or message to be sent to customer after purchase
+                  Add notes for internal use or message to be sent to customer after purchase. Note terakhir otomatis tersimpan untuk pemakaian berikutnya.
                 </p>
                 <textarea
                   value={itemNotes}
@@ -1353,7 +1371,6 @@ export default function ProductItemsPage() {
                     setShowAddModal(false)
                     setNewItems('')
                     setBatchName('')
-                    setItemNotes('')
                   }}
                   className="flex-1 px-4 py-2.5 border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
                 >

@@ -53,7 +53,12 @@ function HomeInner() {
       setProducts(data)
       
       const uniqueCategories = Array.from(
-        new Set((data || []).map(p => formatCategoryName(p.kategori)).filter(Boolean))
+        new Set(
+          (data || [])
+            .map(p => formatCategoryName(p.kategori))
+            .filter(Boolean)
+            .filter(cat => isNaN(Number(cat))) // Filter out numeric categories like "5000"
+        )
       ) as string[]
       setCategories(uniqueCategories)
     } catch (error: any) {
@@ -183,14 +188,8 @@ function HomeInner() {
           </div>
 
           <div className="relative flex justify-end">
-             <div className="relative w-full max-w-md aspect-square bg-white border-[6px] border-[#FBEEF1] rounded-3xl shadow-xl overflow-hidden flex flex-col items-center justify-center p-6 text-center">
-               <div className="absolute top-4 left-4 rotate-[-10deg] bg-white border border-[#DB8291] text-[#DB8291] text-[10px] font-black px-3 py-1 rounded-full shadow-md z-10">SAVE 50%</div>
-               <div className="absolute bottom-6 right-6 rotate-[5deg] bg-[#DB8291] text-white text-[10px] font-black px-3 py-1 rounded-full shadow-md z-10">TRUSTED 100%</div>
-               <div className="w-32 h-32 rounded-full bg-[#FBEEF1] flex items-center justify-center text-[#DB8291] mb-6">
-                 <i className="fa-solid fa-wand-magic-sparkles text-6xl"></i>
-               </div>
-               <h3 className="font-fredoka text-3xl text-[#720002]">Peony Store!</h3>
-               <p className="text-xs text-[#8A3A44] font-bold mt-2">Solusi Digital Kamu ✨</p>
+             <div className="relative w-full max-w-md aspect-square bg-white border-[6px] border-[#FBEEF1] rounded-3xl shadow-xl overflow-hidden flex items-center justify-center">
+               <img src="https://cdn.phototourl.com/free/2026-08-30-e950ef59-7f03-4f4c-aed8-5b905bb8cb2d.jpg" alt="Peony Store" className="w-full h-full object-cover" />
              </div>
           </div>
         </div>
@@ -198,38 +197,42 @@ function HomeInner() {
 
       {/* ===== PAYMENT METHODS BANNER (Overlapping) ===== */}
       <section className="w-full max-w-[1160px] mx-auto px-4 -mt-16 relative z-20">
-        <div className="bg-[#FDF6F8] rounded-2xl border-2 border-dashed border-[#DB8291] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 shadow-md">
-          <div className="flex items-center gap-3 md:w-1/4">
-            <i className="fa-solid fa-credit-card text-[#DB8291] text-xl"></i>
-            <h3 className="font-bold text-[#720002] text-sm">Mendukung Berbagai Pembayaran</h3>
-          </div>
-          
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
-                <i className="fa-solid fa-qrcode text-[#DB8291]"></i>
+        <div className="ticket-wrapper">
+          <div className="bg-[#FDF6F8] rounded-2xl ticket-shape p-2">
+            <div className="border-2 border-dashed border-[#DB8291]/70 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
+              <div className="flex items-center gap-3 md:w-1/4">
+                <i className="fa-solid fa-credit-card text-[#DB8291] text-xl"></i>
+                <h3 className="font-bold text-[#720002] text-sm">Mendukung Berbagai Pembayaran</h3>
               </div>
-              <div>
-                <div className="font-bold text-xs text-[#720002]">QRIS</div>
-                <div className="text-[10px] text-[#9E6B72]">Scan via bank/e-wallet</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
-                <i className="fa-solid fa-wallet text-[#DB8291]"></i>
-              </div>
-              <div>
-                <div className="font-bold text-xs text-[#720002]">E-Wallet</div>
-                <div className="text-[10px] text-[#9E6B72]">Dana, OVO, Gopay, dll</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
-                <i className="fa-solid fa-building-columns text-[#DB8291]"></i>
-              </div>
-              <div>
-                <div className="font-bold text-xs text-[#720002]">Virtual Account</div>
-                <div className="text-[10px] text-[#9E6B72]">BCA, BRI, BNI, dll</div>
+              
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
+                    <i className="fa-solid fa-qrcode text-[#DB8291]"></i>
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-[#720002]">QRIS</div>
+                    <div className="text-[10px] text-[#9E6B72]">Scan via bank/e-wallet</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
+                    <i className="fa-solid fa-wallet text-[#DB8291]"></i>
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-[#720002]">E-Wallet</div>
+                    <div className="text-[10px] text-[#9E6B72]">Dana, OVO, Gopay, dll</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-white border border-[#F4D6DC] flex items-center justify-center shrink-0">
+                    <i className="fa-solid fa-building-columns text-[#DB8291]"></i>
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-[#720002]">Virtual Account</div>
+                    <div className="text-[10px] text-[#9E6B72]">BCA, BRI, BNI, dll</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -244,18 +247,31 @@ function HomeInner() {
           </h2>
 
           <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
+            {/* All Products Button */}
+            <button
+              onClick={() => { setSelectedCategory('all'); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }); }}
+              className={`rounded-xl px-5 py-3 flex items-center gap-3 font-bold text-sm transition-colors shadow-sm ${selectedCategory === 'all' ? 'bg-[#720002] text-white ring-2 ring-white ring-offset-2 ring-offset-[#9E1120]' : 'bg-[#FDF6F8] hover:bg-white text-[#720002]'}`}
+            >
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${selectedCategory === 'all' ? 'bg-white/20 text-white' : 'bg-[#FBEEF1] text-[#DB8291]'}`}>
+                <i className="fa-solid fa-border-all text-xs"></i>
+              </div>
+              Semua Produk
+            </button>
+
+            {/* Dynamic Categories */}
             {categories.slice(0, 8).map(cat => (
               <button
                 key={cat}
                 onClick={() => { setSelectedCategory(cat); document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' }); }}
-                className="bg-[#FDF6F8] hover:bg-white text-[#720002] rounded-xl px-5 py-3 flex items-center gap-3 font-bold text-sm transition-colors shadow-sm"
+                className={`rounded-xl px-5 py-3 flex items-center gap-3 font-bold text-sm transition-colors shadow-sm ${selectedCategory === cat ? 'bg-[#720002] text-white ring-2 ring-white ring-offset-2 ring-offset-[#9E1120]' : 'bg-[#FDF6F8] hover:bg-white text-[#720002]'}`}
               >
-                <div className="w-7 h-7 rounded-full bg-[#FBEEF1] text-[#DB8291] flex items-center justify-center shrink-0">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${selectedCategory === cat ? 'bg-white/20 text-white' : 'bg-[#FBEEF1] text-[#DB8291]'}`}>
                   <i className={`fa-solid ${getCategoryIcon(cat)} text-xs`}></i>
                 </div>
                 {cat}
               </button>
             ))}
+            
             {categories.length === 0 && (
                <span className="text-white text-sm">Memuat Kategori...</span>
             )}
@@ -311,20 +327,13 @@ function HomeInner() {
 
       {/* ===== SIAPA KAMI (White background) ===== */}
       <section id="tentang" className="w-full bg-white py-20 border-t border-[#F4D6DC] scroll-mt-20">
-        <div className="max-w-[1160px] mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
-          <div className="order-2 md:order-1 flex justify-center border-2 border-dashed border-[#F4D6DC] rounded-3xl p-6 bg-[#FBEEF1]">
-             <div className="w-64 h-64 bg-white rounded-full flex items-center justify-center text-[#DB8291] shadow-lg border-4 border-white">
-                <i className="fa-solid fa-face-smile-wink text-[6rem]"></i>
-             </div>
-          </div>
-          <div className="order-1 md:order-2">
-            <h2 className="font-fredoka text-3xl md:text-4xl text-[#720002] mb-4">
-              <span className="text-[#DB8291] border-b-2 border-[#DB8291]">Siapa Kami</span> dan Apa yang Kami Lakukan
-            </h2>
-            <p className="text-[#8A3A44] leading-relaxed text-sm md:text-base">
-              Peony Store berdiri sejak 2024, kami menyediakan berbagai macam aplikasi premium bergaransi yang nyaman dipakai ataupun dijual kembali. Dengan admin pendamping yang responsif dan ribuan pelanggan yang telah menjadi SAHABAT PEONY. Yuk bergabung!
-            </p>
-          </div>
+        <div className="max-w-[800px] mx-auto px-4 text-center">
+          <h2 className="font-fredoka text-3xl md:text-4xl text-[#720002] mb-6">
+            <span className="text-[#DB8291] border-b-2 border-[#DB8291]">Siapa Kami</span> dan Apa yang Kami Lakukan
+          </h2>
+          <p className="text-[#8A3A44] leading-relaxed text-sm md:text-base">
+            Peony Store berdiri sejak 2024, kami menyediakan berbagai macam aplikasi premium bergaransi yang nyaman dipakai ataupun dijual kembali. Dengan admin pendamping yang responsif dan ribuan pelanggan yang telah menjadi SAHABAT PEONY. Yuk bergabung!
+          </p>
         </div>
       </section>
 
@@ -362,20 +371,9 @@ function HomeInner() {
         </div>
       </section>
 
-      {/* ===== FAQ ===== */}
-      <section id="faq" className="w-full bg-white py-20">
-        <div className="max-w-[700px] mx-auto px-4 text-center">
-           <h2 className="font-fredoka text-2xl md:text-3xl text-[#720002] mb-2">
-             <span className="text-[#DB8291] border-b-2 border-[#DB8291]">Pertanyaan Populer</span> tentang Layanan Kami
-           </h2>
-           <p className="text-[#9E6B72] text-sm mt-8 font-bold">
-             Belum ada pertanyaan tersedia.
-           </p>
-        </div>
-      </section>
 
       {/* ===== BOTTOM CTA ===== */}
-      <section className="w-full bg-white pb-20">
+      <section className="w-full bg-white pt-20 pb-0 md:pb-4">
         <div className="max-w-[900px] mx-auto px-4">
            <div className="bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] rounded-3xl p-10 md:p-12 text-center shadow-xl">
              <h2 className="font-fredoka text-2xl md:text-4xl text-white mb-2">
