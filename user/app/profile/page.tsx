@@ -142,7 +142,7 @@ export default function ProfilePage() {
               Ada problem saat order atau mau klaim garansi? Hubungi WA Utama RAIN di bawah ini.
             </p>
             <a
-              href="https://wa.me/6282340915319?text=Halo%20Admin%20RAIN,%20saya%20butuh%20bantuan%20order/garansi"
+              href="https://wa.me/6287751126614?text=Halo%20Admin%20RAIN,%20saya%20butuh%20bantuan%20order/garansi"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full text-xs py-2.5 rounded-xl border-2 border-[#DB8291] text-[#720002] font-extrabold flex items-center justify-center gap-1.5 hover:bg-[#FBEEF1] transition-all"

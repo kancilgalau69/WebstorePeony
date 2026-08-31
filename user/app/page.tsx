@@ -145,13 +145,14 @@ function HomeInner() {
       <section className="w-full bg-gradient-to-b from-[#FBEEF1] to-[#FDF6F8] pt-10 pb-32 relative">
         <div className="max-w-[1160px] mx-auto px-4 grid md:grid-cols-2 gap-10 items-center">
           <div>
-            <h1 className="font-fredoka text-4xl md:text-[3.25rem] leading-[1.15] text-[#720002]">
-              <span className="text-[#DB8291]">Buka fitur Premium</span> <br className="hidden md:block"/>
-              untuk Pengalaman Tanpa Batas
+            <h1 className="font-fredoka text-3xl md:text-4xl leading-[1.3] text-[#720002]">
+              <span className="text-[#DB8291]">𖣁 𓈒 🏩 ꒰ GET YOUR PREMIUM ♡ ꒱ ⑅ ¨ 💭</span>
             </h1>
-            <p className="text-sm md:text-base text-[#8A3A44] leading-relaxed mt-6 max-w-lg">
-              Pilihan yang cocok bagi yang sedang mencari berbagai macam aplikasi premium untuk kebutuhan customermu. Nikmati streaming, editing, education, dan music dengan nyaman bersama PEONY STORE ♡
-            </p>
+            <div className="text-sm md:text-base text-[#8A3A44] leading-relaxed mt-6 max-w-xl space-y-3 font-medium">
+              <p>𓊔 ₊ 𓂂 looking for premium apps for yourself or your customers? say no more, 𝐏𝐞𝐨𝐧𝐲 is here! ⟡ 𓊔 💗</p>
+              <p>🎀 𖣠 ̥݁ streaming sepuasnya 🗒️ ⊹ ꔛ ₊ editing lebih bebas ៶៲៸ ✉️ belajar tanpa batas ˖ 👛 𖠗 atau nikmati musik favoritmu 𓂂 𓐍 🎧 ⑅˚</p>
+              <p>𓏮 💒 ⠏𓈒 ݁ semuanya bisa kamu temukan . . di 𝐏𝐞𝐨𝐧𝐲 𝐒𝐭𝐨𝐫𝐞! 🌸 🎠 ◎</p>
+            </div>
             <div className="flex flex-wrap items-center gap-4 mt-8">
               <a href="#products" className="strawberry-gradient text-white font-extrabold text-sm px-8 py-3.5 rounded-full shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
                 <i className="fa-solid fa-bag-shopping"></i> Belanja Sekarang
@@ -328,21 +329,27 @@ function HomeInner() {
       {/* ===== SIAPA KAMI (White background) ===== */}
       <section id="tentang" className="w-full bg-white py-20 border-t border-[#F4D6DC] scroll-mt-20">
         <div className="max-w-[800px] mx-auto px-4 text-center">
-          <h2 className="font-fredoka text-3xl md:text-4xl text-[#720002] mb-6">
-            <span className="text-[#DB8291] border-b-2 border-[#DB8291]">Siapa Kami</span> dan Apa yang Kami Lakukan
+          <h2 className="font-fredoka text-2xl md:text-3xl text-[#DB8291] mb-6 leading-relaxed">
+            🎠 🎀  Kenalan Dulu Sama Peony, Yuk! 🌷
           </h2>
-          <p className="text-[#8A3A44] leading-relaxed text-sm md:text-base">
-            Peony Store berdiri sejak 2024, kami menyediakan berbagai macam aplikasi premium bergaransi yang nyaman dipakai ataupun dijual kembali. Dengan admin pendamping yang responsif dan ribuan pelanggan yang telah menjadi SAHABAT PEONY. Yuk bergabung!
-          </p>
+          <div className="text-[#8A3A44] leading-relaxed text-sm md:text-base space-y-4 font-medium">
+            <p>𓈄˚˖ 💒 Since 2025 𓈒 𓈒 𝐏𝐞𝐨𝐧𝐲 𝐒𝐭𝐨𝐫𝐞 ʾʿ has been your little place ⁺𓂃 𓂂 for premium apps with warranty 🌸 ౿ 𓈒 𓈆 ₊ kami menyediakan berbagai pilihan aplikasi premium 🗒️⟢ yang nyaman dipakai untuk daily use maupun untuk dijual kembali  ˖ 𖠗 👛 💭</p>
+            <p>𓐇݁ ..┆ⓘ admin responsive & helpful ( ! ) ⑅ kamu bisa langsung reach out 𓂅  ada kendala / pertanyaan .</p>
+            <p>&lt; 🌸 👧🏻 &gt; thousands of customers have joined us and become our  PEONY and now… it’s your turn! 🥡 ⭐️ 💗</p>
+          </div>
         </div>
       </section>
 
       {/* ===== TESTIMONIALS ===== */}
       <section id="testimonials" className="w-full bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] py-20 shadow-inner">
         <div className="max-w-[1160px] mx-auto px-4">
-          <h2 className="font-fredoka text-2xl md:text-3xl text-center text-white mb-12 max-w-2xl mx-auto">
-            <span className="text-[#F4D6DC]">Dengarkan cerita dari klien kami</span> yang mempercayai kami untuk kebutuhan mereka
+          <h2 className="font-fredoka text-2xl md:text-3xl text-center text-[#F4D6DC] mb-4 max-w-3xl mx-auto leading-relaxed">
+            &lt; 📢 &gt; WHAT OUR RESSELER SAYS ABOUT
           </h2>
+          <div className="text-center text-white/90 text-sm md:text-base mb-12 max-w-2xl mx-auto space-y-3 font-medium">
+            <p>✉️ ⊹ ࣪ ˖ nggak cuma soal menjual , tapi juga tentang 𝘁𝗿𝘂𝘀𝘁; 𝗰𝗼𝗺𝗳𝗼𝗿𝘁; 𝗮𝗻𝗱 𝗴𝗼𝗼𝗱 𝗲𝘅𝗽𝗲𝗿𝗶𝗲𝗻𝗰𝗲𝘀 𓂅݁ ₊ 🎠 🎀</p>
+            <p>𐚱 ꔠ ⑅ every feedback means a lot 𓈄᳸  𖦆 and we’re always happy to hear from you! 💗 𓄼</p>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
@@ -376,14 +383,17 @@ function HomeInner() {
       <section className="w-full bg-white pt-20 pb-0 md:pb-4">
         <div className="max-w-[900px] mx-auto px-4">
            <div className="bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] rounded-3xl p-10 md:p-12 text-center shadow-xl">
-             <h2 className="font-fredoka text-2xl md:text-4xl text-white mb-2">
-                <span className="text-[#F4D6DC]">Hubungi Kami</span> untuk Bantuan atau<br/>Informasi Lebih Lanjut
+             <h2 className="font-fredoka text-xl md:text-2xl text-[#F4D6DC] mb-4">
+                — ♡ 𖦹  ⊹ ꒰ HUBUNGI KAMI & INFORMASI LEBIH LANJUT ꒱ 📢 🏩
              </h2>
+             <p className="text-white/90 text-sm md:text-base font-medium">
+               ꪶ  𓇼 . . 🌸 masih ada yang ingin ditanyakan / butuh bantuan ( ? ) 𓈈 we’re always ready to help you! 🎀
+             </p>
              <div className="flex justify-center gap-4 mt-8">
-               <a href="mailto:admin@peonystore.com" className="bg-white text-[#720002] font-extrabold text-sm px-8 py-3.5 rounded-full hover:bg-[#FBEEF1] transition-colors shadow-md">
+               <a href="mailto:tokopeonyrain@gmail.com" className="bg-white text-[#720002] font-extrabold text-sm px-8 py-3.5 rounded-full hover:bg-[#FBEEF1] transition-colors shadow-md">
                  Email Kami
                </a>
-               <a href="https://wa.me/6281234567890" target="_blank" rel="noreferrer" className="bg-white/15 border-2 border-white/40 text-white font-bold text-sm px-8 py-3.5 rounded-full hover:bg-white/25 transition-colors">
+               <a href="https://wa.me/6287751126614" target="_blank" rel="noreferrer" className="bg-white/15 border-2 border-white/40 text-white font-bold text-sm px-8 py-3.5 rounded-full hover:bg-white/25 transition-colors">
                  WhatsApp
                </a>
              </div>

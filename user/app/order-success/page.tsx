@@ -441,7 +441,7 @@ function OrderSuccessInner() {
               <h3 className="font-fredoka text-lg text-[#720002]">Butuh Bantuan?</h3>
               <p className="text-xs text-[#9E6B72] font-bold">Tim CS Peony Store siap membantu 24/7 via WhatsApp.</p>
               <a
-                href={`https://wa.me/6282340915319?text=Halo%20Admin%20Rain%20Store,%20saya%20butuh%20bantuan%20untuk%20Order%20ID%20${orderDetails.orderId}`}
+                href={`https://wa.me/6287751126614?text=Halo%20Admin%20Rain%20Store,%20saya%20butuh%20bantuan%20untuk%20Order%20ID%20${orderDetails.orderId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-card-buy w-full text-xs py-3"
