@@ -76,10 +76,7 @@ export default function ProductItemsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [newItems, setNewItems] = useState('')
   const [batchName, setBatchName] = useState('')
-  const [itemNotes, setItemNotes] = useState(() => {
-    if (typeof window === 'undefined') return ''
-    try { return localStorage.getItem('lastItemNotes') || '' } catch { return '' }
-  })
+  const [itemNotes, setItemNotes] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -326,6 +323,22 @@ export default function ProductItemsPage() {
     URL.revokeObjectURL(url)
   }
 
+  // Per-product storage key so each product remembers its own last used note/S&K.
+  const notesStorageKey = (productId: string) => `lastItemNotes:${productId}`
+
+  const loadLastNotesForProduct = (productId: string): string => {
+    if (!productId || typeof window === 'undefined') return ''
+    try { return localStorage.getItem(notesStorageKey(productId)) || '' } catch { return '' }
+  }
+
+  // Open the Add Items modal and pre-fill notes with the last S&K used for THIS product.
+  const openAddModal = () => {
+    setNewItems('')
+    setBatchName('')
+    setItemNotes(loadLastNotesForProduct(selectedProduct))
+    setShowAddModal(true)
+  }
+
   const handleAddItems = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -358,8 +371,13 @@ export default function ProductItemsPage() {
 
       if (insertError) throw insertError
 
-      // Remember the last used note/S&K so it's pre-filled next time
-      try { localStorage.setItem('lastItemNotes', itemNotes.trim()) } catch {}
+      // Remember the last used note/S&K FOR THIS PRODUCT so it's pre-filled next time
+      // an item is added for the same product.
+      try {
+        const note = itemNotes.trim()
+        if (note) localStorage.setItem(notesStorageKey(product.id), note)
+        else localStorage.removeItem(notesStorageKey(product.id))
+      } catch {}
 
       setNewItems('')
       setBatchName('')
@@ -584,7 +602,7 @@ export default function ProductItemsPage() {
             <FiPlus /> <span className="whitespace-nowrap">Upload Batch</span>
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={openAddModal}
             className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition text-sm md:text-base"
           >
             <FiPlus /> <span className="whitespace-nowrap">Add Items</span>
@@ -807,7 +825,7 @@ export default function ProductItemsPage() {
                 </p>
                 <div className="flex justify-center gap-2">
                   <button
-                    onClick={() => setShowAddModal(true)}
+                    onClick={openAddModal}
                     className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm"
                   >
                     Add Items
@@ -1328,7 +1346,7 @@ export default function ProductItemsPage() {
                       type="button"
                       onClick={() => {
                         setItemNotes('')
-                        try { localStorage.removeItem('lastItemNotes') } catch {}
+                        try { if (selectedProduct) localStorage.removeItem(notesStorageKey(selectedProduct)) } catch {}
                       }}
                       className="text-xs font-medium text-red-500 hover:text-red-600"
                     >
@@ -1337,7 +1355,7 @@ export default function ProductItemsPage() {
                   )}
                 </div>
                 <p className="text-xs text-gray-600">
-                  Add notes for internal use or message to be sent to customer after purchase. Note terakhir otomatis tersimpan untuk pemakaian berikutnya.
+                  Add notes for internal use or message to be sent to customer after purchase. Note (S&K) terakhir per produk otomatis terisi saat menambah item untuk produk yang sama.
                 </p>
                 <textarea
                   value={itemNotes}
