@@ -24,6 +24,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [stockFilter, setStockFilter] = useState<'all' | 'out' | 'in'>('all')
   const [nameSort, setNameSort] = useState<'az' | 'za'>('az')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -75,7 +76,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, statusFilter, nameSort])
+  }, [searchQuery, statusFilter, stockFilter, nameSort])
 
   const fetchProducts = async (opts: { background?: boolean } = {}) => {
     // Skip background refreshes during the post-toggle suppress window.
@@ -425,8 +426,13 @@ export default function ProductsPage() {
       const matchesQuery = p.nama.toLowerCase().includes(q) || p.kode.toLowerCase().includes(q)
       if (!matchesQuery) return false
 
-      if (statusFilter === 'active') return p.aktif !== false
-      if (statusFilter === 'inactive') return p.aktif === false
+      if (statusFilter === 'active' && p.aktif === false) return false
+      if (statusFilter === 'inactive' && p.aktif !== false) return false
+
+      const availableStock = Number(p.availableItems || 0)
+      if (stockFilter === 'out' && availableStock > 0) return false
+      if (stockFilter === 'in' && availableStock <= 0) return false
+
       return true
     })
     .sort((a, b) => {
@@ -436,6 +442,7 @@ export default function ProductsPage() {
 
   const activeCount = products.filter((p) => p.aktif !== false).length
   const inactiveCount = products.filter((p) => p.aktif === false).length
+  const outOfStockCount = products.filter((p) => Number(p.availableItems || 0) <= 0).length
   const totalAvailableItems = products.reduce((sum, p) => sum + (p.availableItems || 0), 0)
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize))
   const paginatedProducts = filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -577,16 +584,27 @@ export default function ProductsPage() {
 
           <div>
             <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">Filter & Sort</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
                 className="h-10 px-3 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 title="Filter status produk"
               >
-                <option value="all">Semua</option>
+                <option value="all">Semua Status</option>
                 <option value="active">Aktif</option>
                 <option value="inactive">Nonaktif</option>
+              </select>
+
+              <select
+                value={stockFilter}
+                onChange={(e) => setStockFilter(e.target.value as 'all' | 'out' | 'in')}
+                className="h-10 px-3 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                title="Filter ketersediaan stok"
+              >
+                <option value="all">Semua Stok</option>
+                <option value="out">Stok Habis{outOfStockCount > 0 ? ` (${outOfStockCount})` : ''}</option>
+                <option value="in">Stok Tersedia</option>
               </select>
 
               <select
