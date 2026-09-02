@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getSessionUser } from '@/lib/auth'
 import { buildDynamicQris, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
+import { formatTelegramCurrency, sendTelegramToAdmins } from '@/lib/telegram-admin'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -105,6 +106,23 @@ export async function POST(request: NextRequest) {
     }
 
     logInfo('TOPUP', 'Topup order created', { topupId, amount, uniqueAmount })
+    try {
+      await sendTelegramToAdmins([
+        '💰 DEPOSIT BARU MASUK',
+        '',
+        `Topup ID: ${topupId}`,
+        `User: ${session.nama}`,
+        `Email: ${session.email}`,
+        `Phone: ${session.phone}`,
+        `Nominal Saldo: ${formatTelegramCurrency(amount)}`,
+        `Admin Fee: ${formatTelegramCurrency(adminFee)}`,
+        `Total Bayar: ${formatTelegramCurrency(uniqueAmount)}`,
+        'Status: pending',
+        `Waktu: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
+      ].join('\n'), 'TOPUP:new-deposit')
+    } catch (notifyError: any) {
+      logWarn('TOPUP', 'Failed sending admin deposit notification', { error: notifyError?.message })
+    }
 
     return NextResponse.json({
       success: true,

@@ -35,11 +35,17 @@ export async function GET() {
 
     if (error) return jsonNoStore({ error: error.message }, 500)
 
-    const tokens = data || []
+    const tokens = (data || []).map((t: any) => {
+      const maxUses = Number(t.max_uses ?? 1) || 1
+      const usedCount = Number(t.used_count ?? (t.status === 'used' ? 1 : 0)) || 0
+      return { ...t, max_uses: maxUses, used_count: usedCount, remaining_uses: Math.max(0, maxUses - usedCount) }
+    })
     const stats = {
       total: tokens.length,
       unused: tokens.filter((t: any) => t.status === 'unused').length,
       used: tokens.filter((t: any) => t.status === 'used').length,
+      // Total registration slots still available across all tokens.
+      slotsLeft: tokens.reduce((sum: number, t: any) => sum + t.remaining_uses, 0),
     }
     return jsonNoStore({ tokens, stats })
   } catch (err: any) {
@@ -47,21 +53,23 @@ export async function GET() {
   }
 }
 
-// POST - generate one or more tokens. body: { count?: number, note?: string }
+// POST - generate one or more tokens. body: { count?: number, note?: string, maxUses?: number }
 export async function POST(req: NextRequest) {
   try {
     const supabase = createServerClient()
     const body = await req.json().catch(() => ({}))
     const count = Math.min(Math.max(parseInt(String(body.count || 1), 10) || 1, 1), 100)
+    // How many users each generated token may be redeemed by (>=1).
+    const maxUses = Math.min(Math.max(parseInt(String(body.maxUses ?? 1), 10) || 1, 1), 1000)
     const note = String(body.note || '').trim() || null
 
-    const rows: { token: string; note: string | null }[] = []
+    const rows: { token: string; note: string | null; max_uses: number }[] = []
     const seen = new Set<string>()
     while (rows.length < count) {
       const token = generateToken()
       if (seen.has(token)) continue
       seen.add(token)
-      rows.push({ token, note })
+      rows.push({ token, note, max_uses: maxUses })
     }
 
     const { data, error } = await supabase

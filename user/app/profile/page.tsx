@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 export default function ProfilePage() {
   const { user, loading, logout } = useAuth()
   const router = useRouter()
+  const proofWhatsappText = encodeURIComponent(`❤️︎⠀ ݂   ۫    🌸🦢  𝐅𝐨𝐫𝐦𝐚𝐭 𝐨𝐫𝐝𝐞𝐫⠀𓉳 𑁍  ۫   ݂⠀⁞ ⠀⁺ ⊹ \n\n⠀✿⠀.  ⊹⠀꒱   device :\n⠀✿⠀.  ⊹⠀꒱   lokasi :\n\n𓈒  ۫    ♡ ˖ ⊹   𝑵𝒐𝒕𝒆𝒔⠀𝜗ৎ  mohon diisi dengan lengkap dan detail agar pesanan diproses ๑  ֹ  ₊  𓉳  𓌔𓌔 ❤️`)
 
   const handleLogout = async () => {
     await logout()
@@ -123,7 +124,7 @@ export default function ProfilePage() {
               form (cek Gc form login).
             </p>
             <a
-              href="https://wa.me/6283879345539?text=Halo%20Admin,%20saya%20mau%20kirim%20SS%20LOGIN%20%2B%20SnK%20akun%20(bukti%20login)"
+              href={`https://wa.me/6283879345539?text=${proofWhatsappText}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-card-buy w-full text-xs py-2.5 flex items-center justify-center gap-1.5"
@@ -131,6 +132,24 @@ export default function ProfilePage() {
               <i className="fa-brands fa-whatsapp text-sm"></i> Kirim Proof + Akun
             </a>
             <p className="text-[10px] font-bold text-[#9E6B72] text-center">Khusus send proof + akun</p>
+          </div>
+          {/* Form khusus Canva */}
+          <div className="rounded-xl border-2 border-[#DB8291]/40 bg-white p-4 space-y-2">
+            <p className="text-[11px] font-extrabold text-[#720002] uppercase tracking-wider flex items-center gap-1.5">
+              <span>🎨</span> Form Proof Canva
+            </p>
+            <p className="text-[11px] font-bold text-[#9E6B72] leading-relaxed">
+              Khusus untuk pesanan <span className="text-[#720002]">Canva</span>, silakan kirimkan bukti login (proof) melalui form di bawah ini.
+            </p>
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLSdjZmf4CCI7ycDcxu9s9ObDBRcOXCfZ1U56mZjCtaPIjMj-Og/viewform"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-card-buy w-full text-xs py-2.5 flex items-center justify-center gap-1.5"
+            >
+              <i className="fa-solid fa-list-check text-sm"></i> Kirim Proof Canva
+            </a>
+            <p className="text-[10px] font-bold text-[#9E6B72] text-center">Wajib untuk produk Canva</p>
           </div>
 
           {/* WA Utama RAIN untuk problem/garansi */}

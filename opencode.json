@@ -4,12 +4,12 @@
     "9router": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
-        "baseURL": "https://www.genspark.ai/api/llm_proxy/v1",
-        "apiKey": "gsk-eyJjb2dlbl9pZCI6ImU2MTc2MzdkLTg4ZDUtNGZjYS05NzhkLTBhMWE4MGQ0ZjA3OCIsImtleV9pZCI6ImUxZTQzYzNmLTY3YzYtNDc0Mi04ZDg3LWMwOWQ1Y2UzNTZkNyIsImN0aW1lIjoxNzg4MDk3NDk3LCJjbGF1ZGVfYmlnX21vZGVsIjpudWxsLCJjbGF1ZGVfbWlkZGxlX21vZGVsIjpudWxsLCJjbGF1ZGVfc21hbGxfbW9kZWwiOm51bGx9fMkPNkxUJqKArA8nshy1lkM_gf-ts6NqEu2J0cfWqNAU"
+        "baseURL": "http://127.0.0.1:20128/v1",
+        "apiKey": "sk-dd280c071621651a-xby4wm-1e189a5b"
       },
       "models": {
-        "claude-opus-4-8": {
-          "name": "claude-opus-4-8",
+        "cx/gpt-5.5-xhigh": {
+          "name": "cx/gpt-5.5-xhigh",
           "modalities": {
             "input": [
               "text",
@@ -23,12 +23,12 @@
       }
     }
   },
-  "model": "9router/claude-opus-4-8",
+  "model": "9router/cx/gpt-5.5-xhigh",
   "agent": {
     "explorer": {
       "description": "Fast explorer subagent for codebase exploration",
       "mode": "subagent",
-      "model": "9router/claude-opus-4-8"
+      "model": "9router/meong/meng/claude-opus-4.8"
     }
   }
 }

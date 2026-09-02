@@ -8,12 +8,25 @@ import { Database } from '@/lib/database.types'
 import { useSearchParams } from 'next/navigation'
 import { resolveWebPrice } from '@/lib/pricing'
 import { formatCategoryName, getCategoryIcon } from '@/lib/categories'
+import { useAuth } from '@/components/AuthProvider'
 
 type Product = Database['public']['Tables']['products']['Row']
+
+type Testimonial = {
+  id: string
+  name: string
+  title: string
+  body: string
+  rating: number
+  created_at: string
+}
+
+const testimonialTitles = ['LOVE', 'mantap', 'good', 'keren banget', 'satset', 'recommended']
 
 function HomeInner() {
   const searchParams = useSearchParams()
   const searchQuery = searchParams.get('search') || ''
+  const { user } = useAuth()
   
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,6 +34,13 @@ function HomeInner() {
   const [categories, setCategories] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [filterQuery, setFilterQuery] = useState<string>('')
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
+  const [testimonialPage, setTestimonialPage] = useState(0)
+  const [testimonialText, setTestimonialText] = useState('')
+  const [testimonialTitle, setTestimonialTitle] = useState('good')
+  const [testimonialRating, setTestimonialRating] = useState(5)
+  const [testimonialSubmitting, setTestimonialSubmitting] = useState(false)
+  const [testimonialMessage, setTestimonialMessage] = useState('')
   const requestSeqRef = useRef(0)
   const categoryScrollRef = useRef<HTMLDivElement>(null)
 
@@ -33,6 +53,41 @@ function HomeInner() {
     
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      try {
+        const response = await fetch('/api/testimonials', { cache: 'no-store' })
+        const json = await response.json()
+        if (response.ok) setTestimonials(json.testimonials || [])
+      } catch (err) {
+        console.error('Error fetching testimonials:', err)
+      }
+    }
+    fetchTestimonials()
+  }, [])
+
+  const submitTestimonial = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!testimonialText.trim()) return
+    try {
+      setTestimonialSubmitting(true)
+      setTestimonialMessage('')
+      const response = await fetch('/api/testimonials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testimonial: testimonialText, title: testimonialTitle, rating: testimonialRating }),
+      })
+      const json = await response.json()
+      if (!response.ok) throw new Error(json.error || 'Gagal mengirim testimoni')
+      setTestimonialText('')
+      setTestimonialMessage('Testimoni berhasil dikirim dan menunggu persetujuan admin.')
+    } catch (err) {
+      setTestimonialMessage(err instanceof Error ? err.message : 'Gagal mengirim testimoni')
+    } finally {
+      setTestimonialSubmitting(false)
+    }
+  }
 
   async function fetchProducts({ silent = false } = {}) {
     const requestSeq = ++requestSeqRef.current
@@ -343,39 +398,84 @@ function HomeInner() {
       {/* ===== TESTIMONIALS ===== */}
       <section id="testimonials" className="w-full bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] py-20 shadow-inner">
         <div className="max-w-[1160px] mx-auto px-4">
-          <h2 className="font-fredoka text-2xl md:text-3xl text-center text-[#F4D6DC] mb-4 max-w-3xl mx-auto leading-relaxed">
-            &lt; 📢 &gt; WHAT OUR RESSELER SAYS ABOUT
+           <h2 className="font-fredoka text-2xl md:text-3xl text-center text-[#F4D6DC] mb-4 max-w-3xl mx-auto leading-relaxed">
+             &lt; 📢 &gt; WHAT OUR RESELLER SAYS ABOUT
           </h2>
           <div className="text-center text-white/90 text-sm md:text-base mb-12 max-w-2xl mx-auto space-y-3 font-medium">
             <p>✉️ ⊹ ࣪ ˖ nggak cuma soal menjual , tapi juga tentang 𝘁𝗿𝘂𝘀𝘁; 𝗰𝗼𝗺𝗳𝗼𝗿𝘁; 𝗮𝗻𝗱 𝗴𝗼𝗼𝗱 𝗲𝘅𝗽𝗲𝗿𝗶𝗲𝗻𝗰𝗲𝘀 𓂅݁ ₊ 🎠 🎀</p>
             <p>𐚱 ꔠ ⑅ every feedback means a lot 𓈄᳸  𖦆 and we’re always happy to hear from you! 💗 𓄼</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-               { title: 'LOVE', text: 'Prosesnya super cepat! Baru bayar QRIS langsung masuk ke email akunnya.', name: 'Alif Daniya Hisan' },
-               { title: 'mantap', text: 'Langganan Netflix di sini lancar banget, gak ada kendala sama sekali.', name: 'fi store' },
-               { title: 'Ailavyu cipaws sukses selalu muah :33333', text: 'Adminnya ramah dan responsif. Garansinya beneran jalan.', name: 'keesa cathyoura' },
-               { title: 'good', text: 'Harganya bersaing, fiturnya lengkap. Makasih Peony!', name: 'Pachi' },
-               { title: 'keren banget, satset sekali!', text: 'Satset banget transaksinya, the best pokoknya.', name: 'Sybila' }
-            ].map((t, idx) => (
-               <div key={idx} className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 relative border border-[#F4D6DC] shadow-md hover:-translate-y-1 transition-transform">
-                 <div className="text-[10px] uppercase font-black text-[#DB8291] mb-2">{t.title}</div>
-                 <p className="text-sm text-[#8A3A44] leading-relaxed mb-6 font-medium">{t.text}</p>
-                 <div className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-full bg-[#DB8291] text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                     {t.name.charAt(0)}
+           {testimonials.length > 0 ? (
+             <>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 {testimonials.slice(testimonialPage * 6, testimonialPage * 6 + 6).map((t) => (
+                   <div key={t.id} className="bg-white/95 backdrop-blur-sm rounded-2xl p-6 relative border border-[#F4D6DC] shadow-md hover:-translate-y-1 transition-transform">
+                     <div className="flex items-center justify-between mb-2 pr-8">
+                       <div className="text-[10px] uppercase font-black text-[#DB8291]">{t.title}</div>
+                       <div className="text-amber-400 text-xs" aria-label={`${t.rating} dari 5 bintang`}>{'★'.repeat(Math.min(5, Math.max(1, t.rating || 5)))}</div>
+                     </div>
+                     <p className="text-sm text-[#8A3A44] leading-relaxed mb-5 font-medium whitespace-pre-wrap">{t.body}</p>
+                     <div className="flex items-end justify-between gap-3">
+                       <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 rounded-full bg-[#DB8291] text-white flex items-center justify-center font-bold text-sm shadow-sm">{t.name.charAt(0).toUpperCase()}</div>
+                         <div>
+                           <div className="font-bold text-sm text-[#720002]">{t.name}</div>
+                           <div className="text-[10px] text-[#9E6B72]">Reseller</div>
+                         </div>
+                       </div>
+                       <time className="text-[10px] text-[#9E6B72]" dateTime={t.created_at}>{new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</time>
+                     </div>
+                     <i className="fa-solid fa-quote-right absolute top-6 right-6 text-2xl text-[#F4D6DC]"></i>
+                   </div>
+                 ))}
+               </div>
+               {testimonials.length > 6 && (
+                 <div className="flex justify-center items-center gap-3 mt-7">
+                   <button type="button" disabled={testimonialPage === 0} onClick={() => setTestimonialPage(page => Math.max(0, page - 1))} className="px-4 py-2 rounded-full bg-white/20 text-white text-xs font-bold disabled:opacity-40">← Sebelumnya</button>
+                   <span className="text-white/80 text-xs font-bold">{testimonialPage + 1} / {Math.ceil(testimonials.length / 6)}</span>
+                   <button type="button" disabled={(testimonialPage + 1) * 6 >= testimonials.length} onClick={() => setTestimonialPage(page => Math.min(Math.ceil(testimonials.length / 6) - 1, page + 1))} className="px-4 py-2 rounded-full bg-white/20 text-white text-xs font-bold disabled:opacity-40">Berikutnya →</button>
+                 </div>
+               )}
+             </>
+           ) : (
+             <p className="text-center text-white/80 text-sm">Belum ada testimoni yang ditampilkan.</p>
+           )}
+
+           <div className="max-w-2xl mx-auto mt-12 bg-white/95 rounded-2xl p-5 md:p-6 border border-[#F4D6DC] shadow-md">
+             <h3 className="font-fredoka text-xl text-[#720002] text-center">Bagikan Pengalamanmu 🌸</h3>
+             {user ? (
+               <form onSubmit={submitTestimonial} className="mt-4 space-y-3">
+                 <div>
+                   <label className="block text-xs font-bold text-[#9E6B72] mb-1">Nama</label>
+                   <input value={user.nama} readOnly className="w-full rounded-xl border border-[#F4D6DC] bg-[#FBEEF1] px-3 py-2.5 text-sm font-bold text-[#720002] outline-none" />
+                 </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   <div>
+                     <label className="block text-xs font-bold text-[#9E6B72] mb-1">Kesan singkat</label>
+                     <select value={testimonialTitle} onChange={e => setTestimonialTitle(e.target.value)} className="w-full rounded-xl border border-[#F4D6DC] bg-white px-3 py-2.5 text-sm font-bold text-[#720002] outline-none">
+                       {testimonialTitles.map(title => <option key={title} value={title}>{title}</option>)}
+                     </select>
                    </div>
                    <div>
-                     <div className="font-bold text-sm text-[#720002]">{t.name}</div>
-                     <div className="text-[10px] text-[#9E6B72]">Customer</div>
+                     <label className="block text-xs font-bold text-[#9E6B72] mb-1">Rating</label>
+                     <select value={testimonialRating} onChange={e => setTestimonialRating(Number(e.target.value))} className="w-full rounded-xl border border-[#F4D6DC] bg-white px-3 py-2.5 text-sm font-bold text-[#720002] outline-none">
+                       <option value="5">★★★★★ Sangat puas</option><option value="4">★★★★ Puas</option><option value="3">★★★ Cukup</option>
+                     </select>
                    </div>
                  </div>
-                 <i className="fa-solid fa-quote-right absolute top-6 right-6 text-2xl text-[#F4D6DC]"></i>
-               </div>
-            ))}
-          </div>
-        </div>
+                 <div>
+                   <label className="block text-xs font-bold text-[#9E6B72] mb-1">Testimoni</label>
+                   <textarea value={testimonialText} onChange={e => setTestimonialText(e.target.value)} maxLength={500} rows={4} placeholder="Tulis pengalaman positifmu di Peony Store..." required className="w-full rounded-xl border border-[#F4D6DC] bg-white px-3 py-2.5 text-sm text-[#720002] outline-none focus:border-[#DB8291] resize-none" />
+                 </div>
+                 <button type="submit" disabled={testimonialSubmitting || !testimonialText.trim()} className="w-full rounded-xl bg-[#720002] text-white py-3 text-xs font-extrabold disabled:opacity-50">{testimonialSubmitting ? 'Mengirim...' : 'Kirim Testimoni'}</button>
+                 {testimonialMessage && <p className="text-center text-xs font-bold text-[#720002]">{testimonialMessage}</p>}
+               </form>
+             ) : (
+               <p className="text-center text-xs text-[#9E6B72] font-bold mt-3">Silakan login terlebih dahulu untuk mengirim testimoni.</p>
+             )}
+           </div>
+         </div>
       </section>
 
 

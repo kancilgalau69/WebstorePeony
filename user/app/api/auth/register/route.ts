@@ -12,6 +12,7 @@ import {
   createSessionToken,
   setSessionCookie,
 } from '@/lib/auth'
+import { sendTelegramToAdmins } from '@/lib/telegram-admin'
 
 function normalizeEmail(email: string) {
   return String(email || '').trim().toLowerCase()
@@ -70,14 +71,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nomor HP tidak valid. Gunakan format 08xxxxxxxxxx' }, { status: 400 })
     }
 
-    // 3b. Registration token validation (admin-issued, single-use)
+    // 3b. Registration token validation (admin-issued, may allow multiple uses).
     if (!normalizedToken) {
       return NextResponse.json({ error: 'Token pendaftaran wajib diisi. Minta token ke admin.' }, { status: 400 })
     }
 
     const { data: tokenRow } = await supabaseAdmin
       .from('registration_tokens')
-      .select('id, status')
+      .select('id, status, used_count, max_uses')
       .eq('token', normalizedToken)
       .limit(1)
       .single()
@@ -85,8 +86,12 @@ export async function POST(request: NextRequest) {
     if (!tokenRow) {
       return NextResponse.json({ error: 'Token pendaftaran tidak valid.' }, { status: 400 })
     }
-    if (tokenRow.status !== 'unused') {
-      return NextResponse.json({ error: 'Token pendaftaran sudah digunakan.' }, { status: 400 })
+    // Early, friendly check. The authoritative (atomic) claim happens after the
+    // user row is created, so a race can never over-consume the token.
+    const maxUses = Number(tokenRow.max_uses ?? 1) || 1
+    const usedCount = Number(tokenRow.used_count ?? (tokenRow.status === 'used' ? 1 : 0)) || 0
+    if (tokenRow.status !== 'unused' || usedCount >= maxUses) {
+      return NextResponse.json({ error: 'Token pendaftaran sudah habis digunakan.' }, { status: 400 })
     }
 
     // 4. Password validation
@@ -172,24 +177,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gagal mendaftarkan akun.' }, { status: 500 })
     }
 
-    // 9b. Consume the registration token (atomic claim to avoid double-use races).
+    // 9b. Consume one slot of the registration token.
+    //     Atomic: the UPDATE only matches while a slot is still free, so two
+    //     concurrent registrations can never share the last remaining slot.
     const { data: claimedToken } = await supabaseAdmin
-      .from('registration_tokens')
-      .update({
-        status: 'used',
-        used_by_user_web: newUser.id,
-        used_by_email: normalizedEmail,
-        used_at: new Date().toISOString(),
+      .rpc('claim_registration_token', {
+        p_token: normalizedToken,
+        p_user_id: newUser.id,
+        p_email: normalizedEmail,
       })
-      .eq('id', tokenRow.id)
-      .eq('status', 'unused')
-      .select('id')
       .maybeSingle()
 
     if (!claimedToken) {
-      // Another request consumed the token first — roll back the new user.
+      // Another request consumed the last slot first — roll back the new user.
       await supabaseAdmin.from('user_web').delete().eq('id', newUser.id)
-      return NextResponse.json({ error: 'Token pendaftaran sudah digunakan.' }, { status: 400 })
+      return NextResponse.json({ error: 'Token pendaftaran sudah habis digunakan.' }, { status: 400 })
     }
 
     // 10. Create session token & set cookie
@@ -212,6 +214,19 @@ export async function POST(request: NextRequest) {
     })
 
     setSessionCookie(response, sessionToken)
+    try {
+      await sendTelegramToAdmins([
+        '🆕 USER BARU TERDAFTAR',
+        '',
+        `Nama: ${newUser.nama}`,
+        `Email: ${newUser.email}`,
+        `Phone: ${newUser.phone}`,
+        `Token: ${normalizedToken}`,
+        `Waktu: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
+      ].join('\n'), 'REGISTER:new-user')
+    } catch (notifyError: any) {
+      console.warn('Failed sending new user Telegram notification', notifyError?.message || notifyError)
+    }
     return response
   } catch (error: any) {
     console.error('Register error:', error)

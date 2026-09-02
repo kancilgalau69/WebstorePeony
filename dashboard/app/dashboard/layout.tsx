@@ -20,7 +20,8 @@ import {
   FiPercent,
   FiHardDrive,
   FiBell,
-  FiKey
+  FiKey,
+  FiStar
 } from 'react-icons/fi'
 
 const navItems = [
@@ -30,6 +31,7 @@ const navItems = [
   { name: 'Orders', href: '/dashboard/orders', icon: FiShoppingCart },
   { name: 'Promos', href: '/dashboard/promos', icon: FiPercent },
   { name: 'Announcements', href: '/dashboard/announcements', icon: FiBell },
+  { name: 'Testimoni', href: '/dashboard/testimonials', icon: FiStar },
   { name: 'Broadcast', href: '/dashboard/broadcast', icon: FiSend },
   { name: 'Blog', href: '/dashboard/blog', icon: FiFileText },
   { name: 'Users', href: '/dashboard/users', icon: FiUsers },
