@@ -81,28 +81,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="space-y-2">
-          <Link
-            href="/orders"
-            className="flex items-center justify-between p-4 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] font-fredoka text-base text-[#720002] hover:border-[#DB8291] transition-all"
-          >
-            <span className="flex items-center gap-2">
-              <span>🧾</span> Riwayat Pesanan
-            </span>
-            <i className="fa-solid fa-chevron-right text-xs text-[#DB8291]"></i>
-          </Link>
 
-          <Link
-            href="/"
-            className="flex items-center justify-between p-4 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] font-fredoka text-base text-[#720002] hover:border-[#DB8291] transition-all"
-          >
-            <span className="flex items-center gap-2">
-              <span>🛍️</span> Katalog Produk
-            </span>
-            <i className="fa-solid fa-chevron-right text-xs text-[#DB8291]"></i>
-          </Link>
-        </div>
 
         {/* WhatsApp Admin — Bukti Login & Bantuan */}
         <div className="rounded-2xl border-2 border-[#F4D6DC] bg-gradient-to-br from-[#FBEEF1] to-white p-5 space-y-4">
@@ -139,7 +118,7 @@ export default function ProfilePage() {
               <span>🎨</span> Form Proof Canva
             </p>
             <p className="text-[11px] font-bold text-[#9E6B72] leading-relaxed">
-              Khusus untuk pesanan <span className="text-[#720002]">Canva</span>, silakan kirimkan bukti login (proof) melalui form di bawah ini.
+              Khusus untuk pesanan <span className="text-[#720002]">Canva</span>, silakan isi form di bawah ini.
             </p>
             <a
               href="https://docs.google.com/forms/d/e/1FAIpQLSdjZmf4CCI7ycDcxu9s9ObDBRcOXCfZ1U56mZjCtaPIjMj-Og/viewform"
@@ -147,7 +126,7 @@ export default function ProfilePage() {
               rel="noopener noreferrer"
               className="btn-card-buy w-full text-xs py-2.5 flex items-center justify-center gap-1.5"
             >
-              <i className="fa-solid fa-list-check text-sm"></i> Kirim Proof Canva
+              <i className="fa-solid fa-list-check text-sm"></i> Kirim Form Canva
             </a>
             <p className="text-[10px] font-bold text-[#9E6B72] text-center">Wajib untuk produk Canva</p>
           </div>
