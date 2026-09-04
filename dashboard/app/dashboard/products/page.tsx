@@ -228,6 +228,16 @@ export default function ProductsPage() {
     URL.revokeObjectURL(url)
   }
 
+  const downloadProductsBatchTemplate = () => {
+    const csvContent = [
+      'kode,nama,harga_web,harga_bot,kategori,stok,deskripsi',
+      'CAPCUT-1B,CapCut Pro 1 Bulan,25000,25000,Editing,0,Akun premium CapCut Pro 1 bulan',
+      'NETFLIX-1P1U,Netflix 1P1U 1 Bulan,35000,35000,Streaming,0,Netflix private profile 1 bulan',
+    ].join('\n')
+
+    downloadFile(csvContent, 'template-upload-products.csv', 'text/csv')
+  }
+
   const handleAddNew = () => {
     setEditingProduct(null)
     setFormData({
@@ -1083,7 +1093,16 @@ export default function ProductsPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-700">Format columns (with header):</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-gray-700">Format columns (with header):</p>
+                <button
+                  type="button"
+                  onClick={downloadProductsBatchTemplate}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 border border-green-200 text-sm font-medium hover:bg-green-100"
+                >
+                  <FiDownload /> Download Template
+                </button>
+              </div>
               <pre className="bg-gray-100 p-3 rounded text-xs text-gray-800 overflow-auto">kode,nama,harga_web,harga_bot,kategori,stok,deskripsi\nPAKET-30H,Paket Internet 30 Hari,50000,50000,Internet,0,Kuota 10GB per 30 hari\nVCHR-XYZ,Voucher Game XYZ,15000,,Game,0,Kode voucher XYZ</pre>
               <input
                 type="file"

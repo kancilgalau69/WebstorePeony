@@ -323,6 +323,17 @@ export default function ProductItemsPage() {
     URL.revokeObjectURL(url)
   }
 
+  const downloadItemsBatchTemplate = () => {
+    const productCode = selectedProductData?.kode || 'KODE-PRODUK'
+    const csvContent = [
+      'product_code,item_data,status,notes,batch',
+      `${productCode},email1@example.com:password123,available,Login via app resmi. Garansi sesuai S&K,JAN-2026`,
+      `${productCode},VOUCHER-ABC-123,available,Masukkan kode sesuai instruksi produk,JAN-2026`,
+    ].join('\n')
+
+    downloadFile(csvContent, `template-upload-items_${productCode}.csv`, 'text/csv')
+  }
+
   // Per-product storage key so each product remembers its own last used note/S&K.
   const notesStorageKey = (productId: string) => `lastItemNotes:${productId}`
 
@@ -1424,7 +1435,16 @@ export default function ProductItemsPage() {
             </div>
 
             <div className="space-y-4">
-              <p className="text-sm text-gray-700">Format columns (with header):</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-gray-700">Format columns (with header):</p>
+                <button
+                  type="button"
+                  onClick={downloadItemsBatchTemplate}
+                  className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-50 text-green-700 border border-green-200 text-sm font-medium hover:bg-green-100"
+                >
+                  <FiDownload /> Download Template
+                </button>
+              </div>
               <pre className="bg-gray-100 p-3 rounded text-xs text-gray-800 overflow-auto">product_code,item_data,status,notes,batch\nPAKET-30H,email1@test.com:pass123,available,,JAN-2026\nPAKET-30H,VCHR-ABC-123,available,Promo batch,JAN-2026</pre>
               <p className="text-xs text-gray-600">If <strong>product_code</strong> is omitted, the currently selected product will be used.</p>
               <input

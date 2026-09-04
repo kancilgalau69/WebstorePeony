@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment, useMemo } from 'react'
 import { createBrowserClient } from '@/lib/supabase'
-import { FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import { FiSearch, FiChevronDown, FiChevronUp, FiChevronLeft, FiChevronRight, FiMessageCircle, FiDownload } from 'react-icons/fi'
 
 // ==================== TYPES ====================
 
@@ -120,13 +120,46 @@ function UserOrdersTab() {
     return nowTs > expiresAtMs ? 'expired' : 'pending'
   }
 
+  const getWhatsappUrl = (phone?: string | null) => {
+    const digits = String(phone || '').replace(/\D/g, '')
+    if (!digits) return null
+    const normalized = digits.startsWith('0') ? `62${digits.slice(1)}` : digits.startsWith('62') ? digits : digits
+    return `https://wa.me/${normalized}`
+  }
+
+  const stringifyOrderItemsForSearch = (order: Order) => {
+    const chunks: string[] = []
+
+    for (const item of orderItems[order.id] || []) {
+      chunks.push(item.product_name, item.product_code, item.item_data || '')
+    }
+
+    if (Array.isArray(order.items)) {
+      for (const item of order.items) {
+        chunks.push(
+          item?.product_name || item?.name || '',
+          item?.product_code || item?.code || '',
+          item?.item_data || ''
+        )
+        try {
+          chunks.push(JSON.stringify(item))
+        } catch {}
+      }
+    }
+
+    return chunks.filter(Boolean).join(' ').toLowerCase()
+  }
+
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      const searchLower = searchQuery.toLowerCase()
-      const matchesSearch =
+      const searchLower = searchQuery.toLowerCase().trim()
+      const matchesSearch = !searchLower ||
         String(order.order_id || '').toLowerCase().includes(searchLower) ||
         String(order.user_id || '').toLowerCase().includes(searchLower) ||
-        String(order.customer_phone || '').toLowerCase().includes(searchLower)
+        String(order.customer_name || '').toLowerCase().includes(searchLower) ||
+        String(order.customer_email || '').toLowerCase().includes(searchLower) ||
+        String(order.customer_phone || '').toLowerCase().includes(searchLower) ||
+        stringifyOrderItemsForSearch(order).includes(searchLower)
 
       const effectiveStatus = getEffectiveStatus(order)
       const matchesStatus = statusFilter === 'all' || effectiveStatus === statusFilter
@@ -146,7 +179,7 @@ function UserOrdersTab() {
       }
       return matchesSearch && matchesStatus && matchesDate
     })
-  }, [orders, searchQuery, statusFilter, dateFilterType, dateValue, monthValue, yearValue, nowTs])
+  }, [orders, orderItems, searchQuery, statusFilter, dateFilterType, dateValue, monthValue, yearValue, nowTs])
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize))
   const paginatedOrders = useMemo(() => {
@@ -230,6 +263,118 @@ function UserOrdersTab() {
     return []
   }
 
+  const escapeHtml = (value: unknown) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+  const getExportPeriodLabel = () => {
+    if (dateFilterType === 'date' && dateValue) return `hari-${dateValue}`
+    if (dateFilterType === 'month' && monthValue) return `bulan-${monthValue}`
+    if (dateFilterType === 'year' && yearValue) return `tahun-${yearValue}`
+    return 'semua-periode'
+  }
+
+  const exportOrdersToExcel = () => {
+    if (filteredOrders.length === 0) {
+      alert('Tidak ada order untuk diexport')
+      return
+    }
+
+    type ExportRow = {
+      orderId: string
+      date: string
+      status: string
+      customerName: string
+      customerEmail: string
+      customerPhone: string
+      userId: string
+      paymentMethod: string
+      productName: string
+      productCode: string
+      quantity: number | string
+      price: number | string
+      total: number
+      itemData: string
+    }
+
+    const rows: ExportRow[] = filteredOrders.flatMap((order): ExportRow[] => {
+      const details = getOrderItemDetails(order.id)
+      const base = {
+        orderId: order.order_id,
+        customerName: order.customer_name || '-',
+        customerEmail: order.customer_email || '-',
+        customerPhone: order.customer_phone || '-',
+        userId: order.user_id || '-',
+        status: getEffectiveStatus(order),
+        paymentMethod: order.payment_method || '-',
+        total: Number(order.total_amount || 0),
+        date: new Date(order.created_at).toLocaleString('id-ID'),
+      }
+      if (details.length === 0) return [{ ...base, productName: '-', productCode: '-', quantity: '-', price: '-', itemData: '-' }]
+      return details.map((item: any) => ({
+        ...base,
+        productName: item.productName || '-',
+        productCode: item.productCode || '-',
+        quantity: item.quantity || '-',
+        price: Number(item.price || 0),
+        itemData: item.itemData || '-',
+      }))
+    })
+
+    const title = `Export Orders Peony Store - ${getExportPeriodLabel()}`
+    const tableRows = rows.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.orderId)}</td>
+        <td>${escapeHtml(row.date)}</td>
+        <td>${escapeHtml(row.status)}</td>
+        <td>${escapeHtml(row.customerName)}</td>
+        <td>${escapeHtml(row.customerEmail)}</td>
+        <td style="mso-number-format:'\\@';">${escapeHtml(row.customerPhone)}</td>
+        <td>${escapeHtml(row.userId)}</td>
+        <td>${escapeHtml(row.paymentMethod)}</td>
+        <td>${escapeHtml(row.productName)}</td>
+        <td>${escapeHtml(row.productCode)}</td>
+        <td>${escapeHtml(row.quantity)}</td>
+        <td>${escapeHtml(row.price)}</td>
+        <td>${escapeHtml(row.total)}</td>
+        <td>${escapeHtml(row.itemData).replace(/\n/g, '<br/>')}</td>
+      </tr>`).join('')
+
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head><meta charset="UTF-8" />
+          <style>
+            table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 12px; }
+            th { background: #4f46e5; color: white; font-weight: bold; border: 1px solid #d1d5db; padding: 8px; }
+            td { border: 1px solid #d1d5db; padding: 7px; vertical-align: top; }
+            .title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="title">${escapeHtml(title)}</div>
+          <table>
+            <thead><tr>
+              <th>Order ID</th><th>Tanggal</th><th>Status</th><th>Nama Customer</th><th>Email</th><th>No. HP</th><th>User ID</th><th>Metode Bayar</th><th>Nama Produk</th><th>Kode Produk</th><th>Qty</th><th>Harga Item</th><th>Total Order</th><th>Detail Item / Akun</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>`
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `orders-${getExportPeriodLabel()}.xls`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   if (loading) return <div className="text-center py-8">Loading orders...</div>
 
   return (
@@ -260,7 +405,7 @@ function UserOrdersTab() {
         <div className="flex-1">
           <div className="relative">
             <FiSearch className="absolute left-3 top-3 text-gray-400" />
-            <input type="text" placeholder="Search by order number or user ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <input type="text" placeholder="Search order, customer, produk, kode, atau item..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -285,6 +430,13 @@ function UserOrdersTab() {
             {Array.from(new Set(orders.map(o => new Date(o.created_at).getFullYear()))).sort((a, b) => b - a).map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
+        <button
+          onClick={exportOrdersToExcel}
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg flex items-center justify-center gap-2 whitespace-nowrap"
+          title="Export data order sesuai filter/periode yang aktif"
+        >
+          <FiDownload size={16} /> Export Excel
+        </button>
       </div>
 
       {/* Pagination */}
@@ -334,7 +486,23 @@ function UserOrdersTab() {
                         </button>
                       </td>
                       <td className="px-6 py-3"><span className="font-mono text-sm font-medium text-gray-900">{order.order_id}</span></td>
-                      <td className="px-6 py-3 text-sm text-gray-600">{order.user_id}{order.customer_phone && <div className="text-xs text-gray-500 mt-0.5">{order.customer_phone}</div>}</td>
+                      <td className="px-6 py-3 text-sm text-gray-600">
+                        {order.user_id || (!order.customer_phone ? '-' : null)}
+                        {order.customer_phone && (
+                          <div className="mt-0.5">
+                            <a
+                              href={getWhatsappUrl(order.customer_phone) || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 hover:text-green-700 hover:underline"
+                              title="Chat customer via WhatsApp"
+                            >
+                              <FiMessageCircle size={13} />
+                              {order.customer_phone}
+                            </a>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-3 text-right"><span className="font-semibold text-gray-900">Rp {Number(order.total_amount || 0).toLocaleString('id-ID')}</span></td>
                       <td className="px-6 py-3 text-center"><span className="inline-block bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-semibold">{getItemCount(order.id)}</span></td>
                       <td className="px-6 py-3 text-center"><span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(getEffectiveStatus(order))}`}>{getEffectiveStatus(order).charAt(0).toUpperCase() + getEffectiveStatus(order).slice(1)}</span></td>

@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     setSessionCookie(response, sessionToken)
     try {
       await sendTelegramToAdmins([
-        '🆕 USER BARU TERDAFTAR',
+        '👤 USER BARU TERDAFTAR',
         '',
         `Nama: ${newUser.nama}`,
         `Email: ${newUser.email}`,

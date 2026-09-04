@@ -299,7 +299,7 @@ function HomeInner() {
       <section className="w-full bg-gradient-to-r from-[#720002] via-[#9E1120] to-[#DB8291] mt-16 py-16 shadow-md">
         <div className="max-w-[1160px] mx-auto px-4 text-center">
           <h2 className="font-fredoka text-3xl md:text-4xl text-white mb-10">
-            <span className="text-[#F4D6DC]">Pilihan Produk</span> Berkualitas untuk<br/>Kebutuhan Anda
+            ꒰ choose what you want ♡ ꒱ 🌷
           </h2>
 
           <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
