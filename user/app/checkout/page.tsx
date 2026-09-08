@@ -3,7 +3,7 @@
 import { useCart } from '@/components/CartProvider'
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Script from 'next/script'
 import Link from 'next/link'
 import { resolveWebPrice } from '@/lib/pricing'
@@ -20,11 +20,6 @@ export default function CheckoutPage() {
   const [customerPhone, setCustomerPhone] = useState(user?.phone || '')
   const [loading, setLoading] = useState(false)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
-  const [captchaToken, setCaptchaToken] = useState<string>('')
-  const [captchaReady, setCaptchaReady] = useState(false)
-  const captchaRef = useRef<HTMLDivElement | null>(null)
-  const widgetIdRef = useRef<number | null>(null)
-
   const [promoCode, setPromoCode] = useState('')
   const [promoLoading, setPromoLoading] = useState(false)
   const [appliedPromo, setAppliedPromo] = useState<{
@@ -53,56 +48,9 @@ export default function CheckoutPage() {
     return () => { cancelled = true }
   }, [])
 
-  const renderCaptcha = () => {
-    const hc = (window as any).hcaptcha
-    if (!hc || !captchaRef.current) return
-
-    if (widgetIdRef.current !== null) {
-      try { hc.remove(widgetIdRef.current) } catch {}
-      widgetIdRef.current = null
-    }
-    captchaRef.current.innerHTML = ''
-
-    try {
-      widgetIdRef.current = hc.render(captchaRef.current, {
-        sitekey: process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || '',
-        callback: (token: string) => setCaptchaToken(token),
-        'expired-callback': () => setCaptchaToken(''),
-        'error-callback': () => setCaptchaToken(''),
-      })
-      setCaptchaReady(true)
-    } catch (err) {
-      console.warn('hCaptcha render error:', err)
-    }
-  }
-
-  const resetCaptcha = () => {
-    setCaptchaToken('')
-    const hc = (window as any).hcaptcha
-    if (hc && widgetIdRef.current !== null) {
-      try { hc.reset(widgetIdRef.current) } catch {}
-    }
-  }
-
   useEffect(() => {
     setIsProcessingPayment(false)
     setLoading(false)
-    setCaptchaToken('')
-    setCaptchaReady(false)
-    widgetIdRef.current = null
-
-    let attempts = 0
-    const tryRender = () => {
-      if ((window as any).hcaptcha && captchaRef.current) {
-        renderCaptcha()
-        return
-      }
-      attempts++
-      if (attempts < 30) setTimeout(tryRender, 200)
-    }
-    setTimeout(tryRender, 100)
-
-    return () => { attempts = 999 }
   }, [])
 
   // Guests are shown a "must have an account" info screen (rendered below);
@@ -224,7 +172,6 @@ export default function CheckoutPage() {
           customerName: normalizedCustomerName,
           customerEmail: normalizedCustomerEmail,
           customerPhone: normalizedCustomerPhone,
-          captchaToken,
           ...(appliedPromo ? { promoCode: appliedPromo.code, promoDiscount: appliedPromo.discount_amount } : {}),
           // Reuse the previewed Qiospay admin fee so the charged total matches what was shown.
           ...(paymentInfo?.gateway === 'qiospay' && paymentInfo.adminFee ? { qiospayAdminFee: paymentInfo.adminFee } : {}),
@@ -243,12 +190,10 @@ export default function CheckoutPage() {
         }
         // Insufficient balance -> guide to deposit.
         if (data.insufficientBalance) {
-          resetCaptcha()
           alert('Saldo tidak cukup. Anda akan diarahkan ke halaman deposit.')
           router.push('/deposit')
           return
         }
-        resetCaptcha()
         throw new Error(data.error || 'Gagal membuat transaksi')
       }
 
@@ -300,7 +245,6 @@ export default function CheckoutPage() {
       alert(error.message || 'Terjadi kesalahan, silakan coba lagi')
       setLoading(false)
       setIsProcessingPayment(false)
-      resetCaptcha()
     }
   }
 
@@ -352,16 +296,6 @@ export default function CheckoutPage() {
         src="https://app.midtrans.com/snap/snap.js"
         data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
         strategy="afterInteractive"
-      />
-
-      <Script
-        src="https://js.hcaptcha.com/1/api.js?render=explicit&recaptchacompat=off"
-        strategy="afterInteractive"
-        onLoad={() => {
-          if (captchaRef.current && !(widgetIdRef.current !== null)) {
-            renderCaptcha()
-          }
-        }}
       />
 
       <div className="max-w-[1160px] mx-auto px-4 space-y-6 animate-fadeIn py-4">
@@ -473,27 +407,16 @@ export default function CheckoutPage() {
                   )}
                 </div>
 
-                {/* CAPTCHA */}
-                <div className="mt-6">
-                  <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
-                    Verifikasi Keamanan <span className="text-[#D9777F]">*</span>
-                  </label>
-                  <div ref={captchaRef} />
-                </div>
-
                 <button
                   type="submit"
                   disabled={
                     loading ||
-                    (!captchaToken && captchaReady) ||
                     (payMethod === 'balance' && walletBalance !== null && walletBalance < finalTotal)
                   }
                   className="btn-card-buy w-full py-3.5 text-xs mt-6"
                 >
                   {loading
                     ? 'Memproses Transaksi...'
-                    : !captchaToken && captchaReady
-                    ? 'Selesaikan CAPTCHA dulu'
                     : payMethod === 'balance'
                     ? `Bayar Pakai Saldo ${formatPrice(finalTotal)} ✦`
                     : `Bayar Sekarang ${formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)} ✦`}

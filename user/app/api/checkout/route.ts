@@ -484,7 +484,7 @@ export async function POST(request: NextRequest) {
 
     // 1. Parse body
     const body = await request.json()
-    const { items: rawItems, customerName, customerEmail, customerPhone, captchaToken } = body
+    const { items: rawItems, customerName, customerEmail, customerPhone } = body
     const normalizedCustomerName = String(customerName || '').trim()
     const normalizedCustomerEmail = normalizeCustomerEmail(customerEmail)
     const normalizedCustomerPhone = String(customerPhone || '').trim()
@@ -521,15 +521,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 4. CAPTCHA verification
-    const captchaResult = await verifyCaptcha(captchaToken || '')
-    if (!captchaResult.success) {
-      await logAbuse(request, captchaResult, 'checkout')
-      return NextResponse.json(
-        { error: 'Verifikasi CAPTCHA gagal. Silakan coba lagi.' },
-        { status: 400 }
-      )
-    }
+    // 4. CAPTCHA is intentionally disabled for checkout.
+    const captchaResult = { success: true }
 
     // 5. Rate limit checks (atomic)
     const rateLimitCheck = await checkAndUpdateRateLimits(normalizedIp, normalizedCustomerEmail, normalizedCustomerPhone)
