@@ -220,8 +220,23 @@ function UserOrdersTab() {
     revenue: filteredOrders.filter(o => getEffectiveStatus(o) === 'completed').reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
   } : allStats
 
+  const getUniqueOrderItems = (orderUUID: string) => {
+    const seen = new Set<string>()
+    return (orderItems[orderUUID] || []).filter((item) => {
+      const data = String(item.item_data || '').trim()
+      // Rows without delivered data are placeholders and should retain identity.
+      const key = data
+        ? `${item.product_code || item.product_name}\u0000${data}`
+        : `id:${item.id}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
   const getItemCount = (orderUUID: string) => {
-    const botItems = orderItems[orderUUID]?.length || 0
+    const uniqueItems = getUniqueOrderItems(orderUUID)
+    const botItems = uniqueItems.reduce((sum, item) => sum + Math.max(1, Number(item.quantity || 1)), 0)
     if (botItems > 0) return botItems
     const order = orders.find(o => o.id === orderUUID)
     if (order && order.items && Array.isArray(order.items)) return order.items.length
@@ -229,7 +244,7 @@ function UserOrdersTab() {
   }
 
   const getOrderItemDetails = (orderUUID: string) => {
-    const items = orderItems[orderUUID] || []
+    const items = getUniqueOrderItems(orderUUID)
     if (items.length > 0) {
       const groupedByProduct = items.reduce((acc, item) => {
         const key = item.product_code || item.product_name

@@ -170,7 +170,7 @@ export async function settleQiospayOrder(orderId: string, expectedAmount?: numbe
         .maybeSingle()
 
       if (!existing) {
-        await supabase.from('order_items').insert({
+        const { error: insertError } = await supabase.from('order_items').insert({
           order_id: order.id,
           product_id: snap.product_id || null,
           product_code: snap.product_code,
@@ -180,6 +180,9 @@ export async function settleQiospayOrder(orderId: string, expectedAmount?: numbe
           item_data: combined,
           sent: true,
         })
+        // The callback and status poller may settle concurrently. The DB unique
+        // index rejects the losing identical insert; that is an expected success.
+        if (insertError && insertError.code !== '23505') throw insertError
       } else if (!hasData(existing.item_data)) {
         await supabase.from('order_items')
           .update({ item_data: combined, sent: true })
