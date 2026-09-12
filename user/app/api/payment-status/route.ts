@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
-import { fetchQiospayMutasi, isCreditEntry } from '@/lib/payments/qiospay'
+import { fetchQiospayMutasi, isQiospayPaymentForOrder } from '@/lib/payments/qiospay'
 import { settleQiospayOrder } from '@/lib/orders/settle-qiospay'
 import { getSessionUser } from '@/lib/auth'
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Fetch order from DB to know the provider + verify ownership
     const { data: orderInfo } = await supabase
       .from('orders')
-      .select('payment_provider, status, total_amount, user_web_id')
+      .select('payment_provider, status, total_amount, user_web_id, created_at, expired_at')
       .eq('order_id', order_id)
       .single()
 
@@ -84,8 +84,8 @@ export async function POST(request: NextRequest) {
       try {
         const expectedAmount = Math.round(Number(orderInfo?.total_amount))
         const mutasi = await fetchQiospayMutasi()
-        const paid = mutasi.some(
-          (entry) => isCreditEntry(entry) && Math.round(entry.amount) === expectedAmount
+        const paid = Boolean(orderInfo.created_at) && mutasi.some((entry) =>
+          isQiospayPaymentForOrder(entry, expectedAmount, orderInfo.created_at, orderInfo.expired_at)
         )
 
         logInfo('Payment Status', 'Qiospay mutasi polled', {
@@ -93,6 +93,13 @@ export async function POST(request: NextRequest) {
           expectedAmount,
           paid,
           mutasiCount: mutasi.length,
+          orderCreatedAt: orderInfo.created_at,
+          orderExpiredAt: orderInfo.expired_at,
+          sameAmountEntries: mutasi.filter((entry) => Math.round(entry.amount) === expectedAmount).map((entry) => ({
+            date: entry.date || entry.time || null,
+            type: entry.type,
+            refid: entry.refid || null,
+          })).slice(0, 5),
         })
 
         if (paid) {

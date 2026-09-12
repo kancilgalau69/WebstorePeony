@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     if (orderIds.length > 0) {
       const { data: orderItems } = await supabaseAdmin
         .from('order_items')
-        .select('id, order_id, product_code, item_data, quantity, price')
+        .select('id, order_id, product_code, product_name, item_data, quantity, price')
         .in('order_id', orderIds)
 
       if (orderItems) {
@@ -68,18 +68,57 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 7. Merge order_items into orders
+    // 7. Fetch per-item notes (SnK) from sold product_items, keyed by public order_id string.
+    const orderIdStrings = (orders || []).map((o: any) => o.order_id).filter(Boolean)
+    const { data: productItemNotes } = orderIdStrings.length > 0
+      ? await supabaseAdmin
+        .from('product_items')
+        .select('order_id, product_code, notes')
+        .in('order_id', orderIdStrings)
+        .eq('status', 'sold')
+      : { data: [] }
+
+    const notesMap = new Map<string, Map<string, string[]>>()
+    for (const row of productItemNotes || []) {
+      const oid = row.order_id
+      const code = row.product_code
+      const note = String(row.notes || '').trim()
+      if (!oid || !code || !note) continue
+      if (!notesMap.has(oid)) notesMap.set(oid, new Map())
+      const productMap = notesMap.get(oid)!
+      const list = productMap.get(code) || []
+      if (!list.includes(note)) list.push(note)
+      productMap.set(code, list)
+    }
+
+    // 8. Merge order_items into orders
     const enrichedOrders = (orders || []).map((order: any) => {
       const dbItems = orderItemsMap[order.id] || []
       let mergedItems = (order.items || []).map((jsonItem: any) => {
         const matchingDbItem = dbItems.find(
           (dbItem: any) => dbItem.product_code === (jsonItem.product_code || jsonItem.productCode)
         )
+        const productCode = jsonItem.product_code || jsonItem.productCode || matchingDbItem?.product_code
+        const productNotes = productCode ? (notesMap.get(order.order_id)?.get(productCode) || []) : []
         return {
           ...jsonItem,
+          product_code: productCode,
+          product_name: jsonItem.product_name || jsonItem.name || matchingDbItem?.product_name,
           item_data: matchingDbItem?.item_data || jsonItem.item_data || '',
+          product_notes: productNotes.join('\n'),
         }
       })
+
+      if (mergedItems.length === 0 && dbItems.length > 0) {
+        mergedItems = dbItems.map((dbItem: any) => ({
+          product_code: dbItem.product_code,
+          product_name: dbItem.product_name,
+          item_data: dbItem.item_data || '',
+          quantity: dbItem.quantity || 1,
+          price: dbItem.price || 0,
+          product_notes: (notesMap.get(order.order_id)?.get(dbItem.product_code) || []).join('\n'),
+        }))
+      }
 
       return {
         id: order.id,

@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { resolveBotPrice, resolveWebPrice } from '@/lib/pricing'
 import { logError, logInfo, logWarn, summarizeOrderForLog } from '@/lib/logging/terminal-log'
 import { getSessionUser } from '@/lib/auth'
-import { buildDynamicQris, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
+import { buildDynamicQris, QIOSPAY_AMOUNT_REUSE_WINDOW_MS, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
 
 const midtransClient = require('midtrans-client')
 
@@ -415,7 +415,8 @@ async function releaseReservedItemsForOrder(orderId: string) {
  * To reconcile a payment to an order we make each pending Qiospay order's total
  * unique by adding a small "admin fee" (unique code, 1..QIOSPAY_MAX_UNIQUE_CODE
  * rupiah) on top of the real total. We pick a code not currently in use by another
- * pending Qiospay order.
+ * recent Qiospay order/topup. A recently completed amount is also held because
+ * it can remain visible in Qiospay's mutation feed and must not match a new order.
  *
  * `preferredCode` lets the checkout reuse the exact code previewed to the customer,
  * so the displayed admin fee matches the amount actually charged. If that code is
@@ -432,15 +433,26 @@ async function computeUniqueQiospayAmount(
   const MAX = QIOSPAY_MAX_UNIQUE_CODE
 
   try {
-    const { data: pendingOrders } = await supabase
-      .from('orders')
-      .select('total_amount')
-      .eq('payment_provider', 'qiospay')
-      .eq('status', 'pending')
-      .gte('total_amount', base + 1)
-      .lte('total_amount', base + MAX)
+    const windowStart = new Date(Date.now() - QIOSPAY_AMOUNT_REUSE_WINDOW_MS).toISOString()
+    const [{ data: recentOrders }, { data: recentTopups }] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('total_amount')
+        .eq('payment_provider', 'qiospay')
+        .gte('created_at', windowStart)
+        .gte('total_amount', base + 1)
+        .lte('total_amount', base + MAX),
+      supabase
+        .from('saldo_topup_orders')
+        .select('total_amount')
+        .gte('created_at', windowStart)
+        .gte('total_amount', base + 1)
+        .lte('total_amount', base + MAX),
+    ])
 
-    const taken = new Set<number>((pendingOrders || []).map((o: any) => Math.round(Number(o.total_amount))))
+    const taken = new Set<number>()
+    for (const row of recentOrders || []) taken.add(Math.round(Number(row.total_amount)))
+    for (const row of recentTopups || []) taken.add(Math.round(Number(row.total_amount)))
 
     // 1. Honor the previewed code if it's valid and still free.
     if (preferredCode && preferredCode >= 1 && preferredCode <= MAX && !taken.has(base + preferredCode)) {
@@ -462,13 +474,13 @@ async function computeUniqueQiospayAmount(
       }
     }
   } catch (err: any) {
-    logWarn('CHECKOUT', 'Failed computing unique Qiospay amount, using +1 fallback', {
+    logWarn('CHECKOUT', 'Failed computing unique Qiospay amount', {
       error: err?.message || String(err),
     })
+    throw new Error('Tidak dapat mengamankan nominal unik pembayaran. Silakan coba lagi.')
   }
 
-  // Last resort: add 1 (still better than a non-unique amount).
-  return { amount: base + 1, adminFee: 1 }
+  throw new Error('Semua kode unik pembayaran sedang digunakan. Silakan coba lagi nanti.')
 }
 
 export async function POST(request: NextRequest) {

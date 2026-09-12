@@ -34,6 +34,7 @@ function HomeInner() {
   const [categories, setCategories] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [filterQuery, setFilterQuery] = useState<string>('')
+  const [stockFilter, setStockFilter] = useState<'default' | 'most' | 'least' | 'out'>('default')
   const [testimonials, setTestimonials] = useState<Testimonial[]>([])
   const [testimonialPage, setTestimonialPage] = useState(0)
   const [testimonialText, setTestimonialText] = useState('')
@@ -143,6 +144,29 @@ function HomeInner() {
   } else if (selectedCategory !== 'all') {
     filteredProducts = products.filter(p => formatCategoryName(p.kategori) === selectedCategory)
   }
+
+  if (stockFilter === 'out') {
+    filteredProducts = filteredProducts.filter((product) => Number((product as any).stok || 0) <= 0)
+  }
+
+  filteredProducts = [...filteredProducts].sort((a, b) => {
+    const stockA = Number((a as any).stok || 0)
+    const stockB = Number((b as any).stok || 0)
+
+    if (stockFilter === 'most') return stockB - stockA
+    if (stockFilter === 'least') {
+      // "Paling sedikit" means low available stock first; sold-out products
+      // remain at the bottom and have their own dedicated filter.
+      if (stockA <= 0 && stockB > 0) return 1
+      if (stockA > 0 && stockB <= 0) return -1
+      return stockA - stockB
+    }
+
+    // Default: preserve catalog order while keeping sold-out products last.
+    if (stockA <= 0 && stockB > 0) return 1
+    if (stockA > 0 && stockB <= 0) return -1
+    return 0
+  })
 
   // 1. Flash Sale (Product with harga_lama > harga_web & stok > 0)
   const discountProducts = useMemo(() => {
@@ -341,16 +365,33 @@ function HomeInner() {
           <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
              <h2 className="font-fredoka text-2xl text-[#720002]">Katalog <span className="text-[#DB8291]">Produk</span></h2>
              
-             {/* Search input */}
-             <div className="relative w-full sm:w-72">
-               <input
-                 type="text"
-                 value={filterQuery}
-                 onChange={(e) => setFilterQuery(e.target.value)}
-                 placeholder="Cari aplikasi..."
-                 className="w-full pl-4 pr-10 py-2.5 rounded-full border border-[#F4D6DC] bg-white text-sm font-bold text-[#720002] focus:border-[#DB8291] outline-none"
-               />
-               <i className="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-[#DB8291] text-sm"></i>
+             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+               <div className="relative w-full sm:w-52 shrink-0">
+                 <select
+                   value={stockFilter}
+                   onChange={(e) => setStockFilter(e.target.value as 'default' | 'most' | 'least' | 'out')}
+                   className="appearance-none w-full h-10 pl-4 pr-10 rounded-full border border-[#F4D6DC] bg-white text-sm font-bold text-[#720002] focus:border-[#DB8291] outline-none cursor-pointer"
+                   aria-label="Filter stok produk"
+                 >
+                   <option value="default">Semua Stok</option>
+                   <option value="most">Stok Terbanyak</option>
+                   <option value="least">Stok Paling Sedikit</option>
+                   <option value="out">Stok Habis</option>
+                 </select>
+                 <i className="fa-solid fa-chevron-down pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-[#DB8291]"></i>
+               </div>
+
+               {/* Search input */}
+               <div className="relative w-full sm:w-72">
+                 <input
+                   type="text"
+                   value={filterQuery}
+                   onChange={(e) => setFilterQuery(e.target.value)}
+                   placeholder="Cari aplikasi..."
+                   className="w-full pl-4 pr-10 py-2.5 rounded-full border border-[#F4D6DC] bg-white text-sm font-bold text-[#720002] focus:border-[#DB8291] outline-none"
+                 />
+                 <i className="fa-solid fa-magnifying-glass absolute right-4 top-1/2 -translate-y-1/2 text-[#DB8291] text-sm"></i>
+               </div>
              </div>
           </div>
           

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
 import { settleQiospayOrder } from '@/lib/orders/settle-qiospay'
 import { settleTopupOrder, findPendingTopupByAmount } from '@/lib/orders/settle-topup'
+import { isQiospayPaymentForOrder, qiospayEntryTimestamp } from '@/lib/payments/qiospay'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -73,7 +74,13 @@ export async function POST(
       })
     }
 
-    const matched = await reconcileQiospayPaymentByAmount(amount)
+    const paidAtMs = qiospayEntryTimestamp({
+      amount,
+      type,
+      date: data.date,
+      time: data.time,
+    })
+    const matched = await reconcileQiospayPaymentByAmount(amount, paidAtMs)
 
     return NextResponse.json({
       status: 'accept',
@@ -97,9 +104,9 @@ export async function POST(
  * then trigger the main webhook as an internal settlement event.
  * Returns true if a matching order was found and handed off.
  */
-async function reconcileQiospayPaymentByAmount(amount: number): Promise<boolean> {
+async function reconcileQiospayPaymentByAmount(amount: number, paidAtMs?: number | null): Promise<boolean> {
   // 1. Try to match a pending saldo TOPUP first (deposit balance).
-  const topupId = await findPendingTopupByAmount(amount)
+  const topupId = await findPendingTopupByAmount(amount, paidAtMs)
   if (topupId) {
     logInfo('QIOSPAY CALLBACK', 'Matched pending topup by amount', { topupId, amount })
     const res = await settleTopupOrder(topupId)
@@ -109,12 +116,12 @@ async function reconcileQiospayPaymentByAmount(amount: number): Promise<boolean>
   // 2. Otherwise match a pending product order.
   const { data: orders, error } = await supabase
     .from('orders')
-    .select('order_id, total_amount, status, created_at')
+    .select('order_id, total_amount, status, created_at, expired_at')
     .eq('payment_provider', 'qiospay')
     .eq('status', 'pending')
     .eq('total_amount', amount)
     .order('created_at', { ascending: true })
-    .limit(1)
+    .limit(20)
 
   if (error) {
     logError('QIOSPAY CALLBACK', 'Failed querying pending orders by amount', {
@@ -124,7 +131,15 @@ async function reconcileQiospayPaymentByAmount(amount: number): Promise<boolean>
     return false
   }
 
-  const order = orders?.[0]
+  const order = (orders || []).find((candidate: any) => {
+    if (paidAtMs === undefined || paidAtMs === null) return false
+    return isQiospayPaymentForOrder(
+      { amount, type: 'CR', date: new Date(paidAtMs).toISOString() },
+      amount,
+      candidate.created_at,
+      candidate.expired_at
+    )
+  })
   if (!order) {
     logWarn('QIOSPAY CALLBACK', 'No pending Qiospay order/topup matches amount', { amount })
     return false

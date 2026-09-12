@@ -25,6 +25,10 @@ export const QIOSPAY_MAX_UNIQUE_CODE = (() => {
   return 300
 })()
 
+// Do not recycle a unique payment amount while it may still appear in Qiospay's
+// recent mutation feed. This prevents an old credit from settling a new order.
+export const QIOSPAY_AMOUNT_REUSE_WINDOW_MS = 24 * 60 * 60 * 1000
+
 /**
  * CRC16-CCITT (False) checksum used by the EMVCo QRIS spec.
  * Poly 0x1021, init 0xFFFF, no reflection, no final xor. Returns 4 uppercase hex chars.
@@ -148,6 +152,7 @@ export function buildDynamicQris(staticQris: string, amount: number): string {
 
 export interface QiospayMutasiEntry {
   date?: string
+  time?: string
   amount: number
   type: string
   brand_name?: string
@@ -189,6 +194,7 @@ export async function fetchQiospayMutasi(): Promise<QiospayMutasiEntry[]> {
   return rows
     .map((row) => ({
       date: row?.date,
+      time: row?.time,
       amount: Number(row?.amount),
       type: String(row?.type || ''),
       brand_name: row?.brand_name,
@@ -205,4 +211,52 @@ export async function fetchQiospayMutasi(): Promise<QiospayMutasiEntry[]> {
  */
 export function isCreditEntry(entry: QiospayMutasiEntry): boolean {
   return String(entry.type || '').toUpperCase() === 'CR'
+}
+
+/** Parse Qiospay's common timestamp formats as Asia/Jakarta time. */
+export function qiospayEntryTimestamp(entry: QiospayMutasiEntry): number | null {
+  const raw = String(entry.date || entry.time || '').trim()
+  if (!raw) return null
+
+  if (/^\d{10,13}$/.test(raw)) {
+    const numeric = Number(raw)
+    return raw.length === 10 ? numeric * 1000 : numeric
+  }
+
+  // Qiospay commonly returns `YYYY-MM-DD HH:mm:ss` without a timezone.
+  const sqlDate = raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (sqlDate) {
+    const [, y, m, d, hh, mm, ss = '00'] = sqlDate
+    const parsed = Date.parse(`${y}-${m}-${d}T${hh}:${mm}:${ss}+07:00`)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  const idDate = raw.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/)
+  if (idDate) {
+    const [, d, m, y, hh = '00', mm = '00', ss = '00'] = idDate
+    const parsed = Date.parse(`${y}-${m}-${d}T${hh}:${mm}:${ss}+07:00`)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  const parsed = Date.parse(raw)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/** Match a credit to one order by amount AND the order's payment time window. */
+export function isQiospayPaymentForOrder(
+  entry: QiospayMutasiEntry,
+  expectedAmount: number,
+  createdAt: string,
+  expiresAt?: string | null
+): boolean {
+  if (!isCreditEntry(entry) || Math.round(entry.amount) !== Math.round(expectedAmount)) return false
+
+  const paidAt = qiospayEntryTimestamp(entry)
+  const created = Date.parse(createdAt)
+  const expires = expiresAt ? Date.parse(expiresAt) : created + 15 * 60 * 1000
+  if (paidAt === null || !Number.isFinite(created) || !Number.isFinite(expires)) return false
+
+  // Small tolerance covers clock drift/API timestamp rounding, without allowing
+  // historical mutations to settle a newly-created QRIS order.
+  return paidAt >= created - 2 * 60 * 1000 && paidAt <= expires + 5 * 60 * 1000
 }

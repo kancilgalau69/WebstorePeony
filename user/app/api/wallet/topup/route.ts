@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSessionUser } from '@/lib/auth'
-import { buildDynamicQris, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
+import { buildDynamicQris, isQiospayPaymentForOrder, QIOSPAY_AMOUNT_REUSE_WINDOW_MS, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
 import { logError, logInfo, logWarn } from '@/lib/logging/terminal-log'
 import { formatTelegramCurrency, sendTelegramToAdmins } from '@/lib/telegram-admin'
 
@@ -25,9 +25,10 @@ async function computeUniqueAmount(base: number): Promise<{ amount: number; admi
   const MAX = QIOSPAY_MAX_UNIQUE_CODE
   const taken = new Set<number>()
   try {
+    const windowStart = new Date(Date.now() - QIOSPAY_AMOUNT_REUSE_WINDOW_MS).toISOString()
     const [{ data: orders }, { data: topups }] = await Promise.all([
-      supabase.from('orders').select('total_amount').eq('payment_provider', 'qiospay').eq('status', 'pending').gte('total_amount', base + 1).lte('total_amount', base + MAX),
-      supabase.from('saldo_topup_orders').select('total_amount').eq('status', 'pending').gte('total_amount', base + 1).lte('total_amount', base + MAX),
+      supabase.from('orders').select('total_amount').eq('payment_provider', 'qiospay').gte('created_at', windowStart).gte('total_amount', base + 1).lte('total_amount', base + MAX),
+      supabase.from('saldo_topup_orders').select('total_amount').gte('created_at', windowStart).gte('total_amount', base + 1).lte('total_amount', base + MAX),
     ])
     for (const o of orders || []) taken.add(Math.round(Number(o.total_amount)))
     for (const t of topups || []) taken.add(Math.round(Number(t.total_amount)))
@@ -41,7 +42,7 @@ async function computeUniqueAmount(base: number): Promise<{ amount: number; admi
   for (let code = 1; code <= MAX; code++) {
     if (!taken.has(base + code)) return { amount: base + code, adminFee: code }
   }
-  return { amount: base + 1, adminFee: 1 }
+  throw new Error('Semua kode unik deposit sedang digunakan. Silakan coba lagi nanti.')
 }
 
 // POST - create a deposit (topup) order and return QRIS to pay.
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest) {
 
     const { data: topup } = await supabase
       .from('saldo_topup_orders')
-      .select('topup_id, user_id, status, total_amount')
+      .select('topup_id, user_id, status, total_amount, created_at')
       .eq('topup_id', topupId)
       .single()
 
@@ -167,11 +168,13 @@ export async function GET(request: NextRequest) {
 
     // Poll Qiospay mutasi and settle if the unique amount was paid.
     try {
-      const { fetchQiospayMutasi, isCreditEntry } = await import('@/lib/payments/qiospay')
+       const { fetchQiospayMutasi } = await import('@/lib/payments/qiospay')
       const { settleTopupOrder } = await import('@/lib/orders/settle-topup')
       const expected = Math.round(Number(topup.total_amount))
       const mutasi = await fetchQiospayMutasi()
-      const paid = mutasi.some((e) => isCreditEntry(e) && Math.round(e.amount) === expected)
+      const paid = Boolean(topup.created_at) && mutasi.some((entry) =>
+        isQiospayPaymentForOrder(entry, expected, topup.created_at, new Date(new Date(topup.created_at).getTime() + 15 * 60 * 1000).toISOString())
+      )
       if (paid) {
         const res = await settleTopupOrder(topupId)
         return NextResponse.json({ success: true, status: res.completed ? 'completed' : 'pending' })

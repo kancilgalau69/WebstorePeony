@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { resolveWebPrice } from '@/lib/pricing'
 import { getSessionUser } from '@/lib/auth'
 import { logWarn } from '@/lib/logging/terminal-log'
-import { QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
+import { QIOSPAY_AMOUNT_REUSE_WINDOW_MS, QIOSPAY_MAX_UNIQUE_CODE } from '@/lib/payments/qiospay'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServerKey =
@@ -116,20 +116,27 @@ export async function POST(request: NextRequest) {
 
     const netTotal = Math.max(1, Math.round(subtotal - promoDiscount))
 
-    // For Qiospay, pick an admin fee (unique code) not currently used by a pending order.
+    // For Qiospay, do not reuse amounts that may still appear in recent mutasi.
     let adminFee = 0
     if (activeGateway === 'qiospay') {
       const base = netTotal
       try {
-        const { data: pendingOrders } = await supabase
-          .from('orders')
-          .select('total_amount')
-          .eq('payment_provider', 'qiospay')
-          .eq('status', 'pending')
-          .gte('total_amount', base + 1)
-          .lte('total_amount', base + QIOSPAY_MAX_UNIQUE_CODE)
+        const windowStart = new Date(Date.now() - QIOSPAY_AMOUNT_REUSE_WINDOW_MS).toISOString()
+        const [{ data: recentOrders }, { data: recentTopups }] = await Promise.all([
+          supabase.from('orders').select('total_amount')
+            .eq('payment_provider', 'qiospay')
+            .gte('created_at', windowStart)
+            .gte('total_amount', base + 1)
+            .lte('total_amount', base + QIOSPAY_MAX_UNIQUE_CODE),
+          supabase.from('saldo_topup_orders').select('total_amount')
+            .gte('created_at', windowStart)
+            .gte('total_amount', base + 1)
+            .lte('total_amount', base + QIOSPAY_MAX_UNIQUE_CODE),
+        ])
 
-        const taken = new Set<number>((pendingOrders || []).map((o: any) => Math.round(Number(o.total_amount))))
+        const taken = new Set<number>()
+        for (const row of recentOrders || []) taken.add(Math.round(Number(row.total_amount)))
+        for (const row of recentTopups || []) taken.add(Math.round(Number(row.total_amount)))
         for (let attempt = 0; attempt < 50; attempt++) {
           const code = Math.floor(Math.random() * QIOSPAY_MAX_UNIQUE_CODE) + 1
           if (!taken.has(base + code)) {

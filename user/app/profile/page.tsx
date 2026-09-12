@@ -21,6 +21,10 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [form, setForm] = useState({ nama: '', phone: '', avatar_url: '' })
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', code: '', password: '', confirmPassword: '' })
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
   const proofWhatsappText = encodeURIComponent(`❤️︎⠀ ݂   ۫    🌸🦢  𝐅𝐨𝐫𝐦𝐚𝐭 𝐨𝐫𝐝𝐞𝐫⠀𓉳 𑁍  ۫   ݂⠀⁞ ⠀⁺ ⊹ \n\n⠀✿⠀.  ⊹⠀꒱   device :\n⠀✿⠀.  ⊹⠀꒱   lokasi :\n\n𓈒  ۫    ♡ ˖ ⊹   𝑵𝒐𝒕𝒆𝒔⠀𝜗ৎ  mohon diisi dengan lengkap dan detail agar pesanan diproses ๑  ֹ  ₊  𓉳  𓌔𓌔 ❤️`)
 
   const handleLogout = async () => {
@@ -77,6 +81,48 @@ export default function ProfilePage() {
       setMessage(err instanceof Error ? err.message : 'Gagal menyimpan profil')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const requestPasswordCode = async () => {
+    setPasswordLoading(true)
+    setPasswordMessage('')
+    try {
+      const res = await fetch('/api/auth/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request_change' }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Gagal mengirim kode')
+      setCodeSent(true)
+      setPasswordMessage(json.message || 'Kode verifikasi sudah dikirim ke email akun.')
+    } catch (err) {
+      setPasswordMessage(err instanceof Error ? err.message : 'Gagal mengirim kode')
+    } finally {
+      setPasswordLoading(false)
+    }
+  }
+
+  const changePassword = async (event?: { preventDefault: () => void }) => {
+    event?.preventDefault()
+    setPasswordLoading(true)
+    setPasswordMessage('')
+    try {
+      const res = await fetch('/api/auth/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'change_password', ...passwordForm }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || (json.passwordErrors || []).join(', ') || 'Gagal mengubah password')
+      setPasswordForm({ currentPassword: '', code: '', password: '', confirmPassword: '' })
+      setCodeSent(false)
+      setPasswordMessage('Password berhasil diubah.')
+    } catch (err) {
+      setPasswordMessage(err instanceof Error ? err.message : 'Gagal mengubah password')
+    } finally {
+      setPasswordLoading(false)
     }
   }
 
@@ -199,6 +245,55 @@ export default function ProfilePage() {
                 <span className="text-xs font-bold text-[#9E6B72]">Preview foto profil</span>
               </div>
             )}
+
+            <div className="border-t-2 border-[#F4D6DC] pt-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-fredoka text-base text-[#720002]">Ubah Password</h3>
+                  <p className="text-[11px] font-bold text-[#9E6B72] mt-1">Wajib verifikasi kode yang dikirim ke email akun.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={requestPasswordCode}
+                  disabled={passwordLoading}
+                  className="px-3 py-2 rounded-xl bg-[#FBEEF1] border-2 border-[#F4D6DC] text-[#DB8291] font-extrabold text-[10px] shrink-0 disabled:opacity-60"
+                >
+                  {codeSent ? 'Kirim Ulang Kode' : 'Kirim Kode'}
+                </button>
+              </div>
+              <input
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                placeholder="Password lama"
+                className="w-full px-3 py-2.5 rounded-xl border-2 border-[#F4D6DC] text-sm font-bold text-[#720002] outline-none focus:border-[#DB8291]"
+              />
+              <input
+                value={passwordForm.code}
+                onChange={(e) => setPasswordForm({ ...passwordForm, code: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                placeholder="Kode verifikasi 6 digit"
+                className="w-full px-3 py-2.5 rounded-xl border-2 border-[#F4D6DC] text-sm font-bold text-[#720002] outline-none focus:border-[#DB8291] tracking-[0.25em]"
+              />
+              <input
+                type="password"
+                value={passwordForm.password}
+                onChange={(e) => setPasswordForm({ ...passwordForm, password: e.target.value })}
+                placeholder="Password baru"
+                className="w-full px-3 py-2.5 rounded-xl border-2 border-[#F4D6DC] text-sm font-bold text-[#720002] outline-none focus:border-[#DB8291]"
+              />
+              <input
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                placeholder="Konfirmasi password baru"
+                className="w-full px-3 py-2.5 rounded-xl border-2 border-[#F4D6DC] text-sm font-bold text-[#720002] outline-none focus:border-[#DB8291]"
+              />
+              <button type="button" onClick={() => changePassword()} disabled={passwordLoading} className="w-full py-2.5 rounded-xl strawberry-gradient text-white font-extrabold text-xs disabled:opacity-60">
+                {passwordLoading ? 'Memproses...' : 'Simpan Password Baru'}
+              </button>
+              {passwordMessage && <p className="text-center text-xs font-bold text-[#720002]">{passwordMessage}</p>}
+            </div>
+
             <div className="grid grid-cols-2 gap-2 pt-2">
               <button type="button" onClick={() => setEditing(false)} className="py-2.5 rounded-xl border-2 border-[#F4D6DC] text-[#720002] font-extrabold text-xs">Batal</button>
               <button type="submit" disabled={saving} className="py-2.5 rounded-xl strawberry-gradient text-white font-extrabold text-xs disabled:opacity-60">
@@ -219,8 +314,6 @@ export default function ProfilePage() {
                 <span className="text-[#720002]">{displayProfile.phone}</span>
           </div>
         </div>
-
-
 
         {/* WhatsApp Admin — Bukti Login & Bantuan */}
         <div className="rounded-2xl border-2 border-[#F4D6DC] bg-gradient-to-br from-[#FBEEF1] to-white p-5 space-y-4">

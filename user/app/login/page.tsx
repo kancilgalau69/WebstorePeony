@@ -18,6 +18,14 @@ function LoginInner() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetCode, setResetCode] = useState('')
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('')
+  const [resetStep, setResetStep] = useState<'email' | 'code'>('email')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMessage, setResetMessage] = useState('')
 
   const [captchaToken, setCaptchaToken] = useState('')
   const [captchaReady, setCaptchaReady] = useState(false)
@@ -111,6 +119,57 @@ function LoginInner() {
     setLoading(false)
   }
 
+  const requestResetCode = async (e?: { preventDefault: () => void }) => {
+    e?.preventDefault()
+    setResetLoading(true)
+    setResetMessage('')
+    try {
+      const res = await fetch('/api/auth/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request_forgot', email: resetEmail }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Gagal mengirim kode')
+      setResetStep('code')
+      setResetMessage(json.message || 'Kode verifikasi sudah dikirim ke email.')
+    } catch (err) {
+      setResetMessage(err instanceof Error ? err.message : 'Gagal mengirim kode')
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const resetForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetLoading(true)
+    setResetMessage('')
+    try {
+      const res = await fetch('/api/auth/password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reset_forgot',
+          email: resetEmail,
+          code: resetCode,
+          password: resetPassword,
+          confirmPassword: resetConfirmPassword,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || (json.passwordErrors || []).join(', ') || 'Gagal reset password')
+      setForgotOpen(false)
+      setPassword('')
+      setError('')
+      setResetMessage('')
+      alert('Password berhasil diubah. Silakan login dengan password baru.')
+    } catch (err) {
+      setResetMessage(err instanceof Error ? err.message : 'Gagal reset password')
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
   if (success) {
     return (
       <div className="max-w-md mx-auto py-12 animate-fadeIn text-center">
@@ -191,6 +250,21 @@ function LoginInner() {
                   <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotOpen(true)
+                  setResetStep('email')
+                  setResetEmail(identifier.includes('@') ? identifier : '')
+                  setResetCode('')
+                  setResetPassword('')
+                  setResetConfirmPassword('')
+                  setResetMessage('')
+                }}
+                className="mt-2 text-xs font-extrabold text-[#DB8291] hover:underline"
+              >
+                Lupa password?
+              </button>
             </div>
 
             <div>
@@ -215,6 +289,35 @@ function LoginInner() {
               Daftar sekarang
             </Link>
           </div>
+
+          {forgotOpen && (
+            <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setForgotOpen(false)}>
+              <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-fredoka text-xl text-[#720002]">Lupa Password</h2>
+                  <button type="button" onClick={() => setForgotOpen(false)} className="text-[#9E6B72] hover:text-[#720002]"><i className="fa-solid fa-xmark"></i></button>
+                </div>
+
+                {resetStep === 'email' ? (
+                  <form onSubmit={requestResetCode} className="space-y-3">
+                    <p className="text-xs font-bold text-[#9E6B72]">Masukkan email akun. Kode verifikasi akan dikirim lewat email.</p>
+                    <input type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="email@contoh.com" className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]" />
+                    <button type="submit" disabled={resetLoading} className="btn-card-buy w-full py-3 text-xs disabled:opacity-60">{resetLoading ? 'Mengirim...' : 'Kirim Kode Verifikasi'}</button>
+                  </form>
+                ) : (
+                  <form onSubmit={resetForgotPassword} className="space-y-3">
+                    <p className="text-xs font-bold text-[#9E6B72]">Masukkan kode 6 digit dari email dan password baru.</p>
+                    <input value={resetCode} onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Kode 6 digit" className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291] tracking-[0.35em]" required />
+                    <input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="Password baru" className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]" required />
+                    <input type="password" value={resetConfirmPassword} onChange={(e) => setResetConfirmPassword(e.target.value)} placeholder="Konfirmasi password baru" className="w-full px-4 py-3 rounded-2xl border-2 border-[#F4D6DC] bg-[#FBEEF1] text-[#720002] font-extrabold text-sm outline-none focus:border-[#DB8291]" required />
+                    <button type="submit" disabled={resetLoading} className="btn-card-buy w-full py-3 text-xs disabled:opacity-60">{resetLoading ? 'Menyimpan...' : 'Ubah Password'}</button>
+                    <button type="button" onClick={() => requestResetCode()} className="w-full text-xs font-extrabold text-[#DB8291] hover:underline">Kirim ulang kode</button>
+                  </form>
+                )}
+                {resetMessage && <p className="mt-3 text-xs font-bold text-center text-[#720002]">{resetMessage}</p>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

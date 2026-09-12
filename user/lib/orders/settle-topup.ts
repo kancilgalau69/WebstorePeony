@@ -83,13 +83,18 @@ export async function settleTopupOrder(topupId: string): Promise<TopupSettleResu
 }
 
 /** Find a pending topup whose unique total_amount matches the paid nominal. */
-export async function findPendingTopupByAmount(amount: number): Promise<string | null> {
+export async function findPendingTopupByAmount(amount: number, paidAtMs?: number | null): Promise<string | null> {
   const { data } = await supabase
     .from('saldo_topup_orders')
     .select('topup_id, total_amount, status, created_at')
     .eq('status', 'pending')
     .eq('total_amount', amount)
     .order('created_at', { ascending: true })
-    .limit(1)
-  return data?.[0]?.topup_id || null
+    .limit(20)
+  const matched = (data || []).find((row: any) => {
+    if (paidAtMs === undefined || paidAtMs === null) return true
+    const created = Date.parse(row.created_at)
+    return Number.isFinite(created) && paidAtMs >= created - 2 * 60 * 1000 && paidAtMs <= created + 20 * 60 * 1000
+  })
+  return matched?.topup_id || null
 }

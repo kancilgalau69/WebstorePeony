@@ -72,6 +72,11 @@ export default function OrdersPage() {
     return String(notes).split(/\r?\n|\|\|/).map((n) => n.trim()).filter(Boolean)
   }
 
+  const splitItemData = (value?: string) => {
+    if (!value) return []
+    return String(value).split(/\r?\n|\s*\|\|\s*/).map((d) => d.trim()).filter(Boolean)
+  }
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -86,12 +91,34 @@ export default function OrdersPage() {
   }
 
   const buildOrderCopyText = (order: OrderData) => {
-    let text = `=== Peony Store DETAIL PEMBELIAN ===\nOrder ID: ${order.orderId}\n\n`
-    ;(order.items || []).forEach((item: any) => {
-      text += `📦 ${item.product_name || item.name}\n`
-      if (item.item_data) text += `${item.item_data}\n`
+    const lines: string[] = []
+    lines.push('🌸 PEONY STORE — BUKTI PEMBELIAN')
+    lines.push('━━━━━━━━━━━━━━━━━━━━━')
+    lines.push(`🧾 Order ID : ${order.orderId}`)
+    lines.push('')
+
+    ;(order.items || []).forEach((item: any, idx: number) => {
+      const name = item.product_name || item.name || 'Produk'
+      lines.push('━━━━━━━━━━━━━━━━━━━━━')
+      lines.push(`📦 ${idx + 1}. ${name}`)
+
+      const dataArr = splitItemData(item.item_data)
+      if (dataArr.length > 0) {
+        lines.push('')
+        lines.push('🔑 Detail Akun / Item:')
+        dataArr.forEach((d: string) => lines.push(d))
+      }
+
+      const notes = splitNotes(item.product_notes)
+      if (notes.length > 0) {
+        lines.push('')
+        lines.push('📌 Ketentuan Produk:')
+        notes.forEach((n: string) => lines.push(n))
+      }
+      lines.push('')
     })
-    return text
+
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   }
 
   const fetchOrders = async (page: number = 1) => {
@@ -167,21 +194,66 @@ export default function OrdersPage() {
               </button>
             </div>
 
+            <div className="bg-white rounded-xl border-2 border-[#F4D6DC] p-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-bold text-[#9E6B72]">
+              <div className="flex justify-between gap-3"><span>Order ID:</span><span className="font-mono text-[#720002] text-right break-all">{order.orderId}</span></div>
+              <div className="flex justify-between gap-3"><span>Status:</span><span className="text-[#720002] text-right">{order.status}</span></div>
+              <div className="flex justify-between gap-3"><span>Waktu:</span><span className="text-[#720002] text-right">{formatDate(order.transactionTime)}</span></div>
+              <div className="flex justify-between gap-3"><span>Total:</span><span className="text-[#DB8291] text-right">{formatPrice(order.total)}</span></div>
+              <div className="flex justify-between gap-3"><span>Nama:</span><span className="text-[#720002] text-right">{order.customerName || '-'}</span></div>
+              <div className="flex justify-between gap-3"><span>Phone:</span><span className="text-[#720002] text-right">{order.customerPhone || '-'}</span></div>
+            </div>
+
             {order.items && order.items.length > 0 && (
-              <div className="space-y-2">
-                {order.items.map((item: any, idx: number) => (
-                  <div key={idx} className="bg-white rounded-xl border-2 border-[#F4D6DC] p-3 text-xs space-y-1">
-                    <p className="font-fredoka text-sm text-[#720002]">
-                      {item.product_name || item.name} (x{item.quantity})
-                    </p>
-                    <p className="text-[#DB8291] font-extrabold">{formatPrice(item.price)}</p>
-                    {item.item_data && (
-                      <div className="mt-2 bg-[#FBEEF1] p-2 rounded-lg font-mono text-[11px] text-[#720002] break-all border border-[#F4D6DC]">
-                        {item.item_data}
+              <div className="space-y-4">
+                {order.items.map((item: any, idx: number) => {
+                  const itemDataArray = splitItemData(item.item_data)
+                  const notesList = splitNotes(item.product_notes)
+
+                  return (
+                    <div key={idx} className="bg-white rounded-2xl border-2 border-[#F4D6DC] p-5 space-y-3">
+                      <div className="flex justify-between items-start gap-3">
+                        <div>
+                          <h3 className="font-fredoka text-lg text-[#720002]">{item.product_name || item.name || 'Produk'}</h3>
+                          <p className="text-xs text-[#9E6B72] font-bold">Qty: {item.quantity || 1}x @ {formatPrice(Number(item.price || 0))}</p>
+                        </div>
+                        <span className="font-fredoka text-lg text-[#DB8291] shrink-0">{formatPrice(Number(item.price || 0) * Number(item.quantity || 1))}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {itemDataArray.length > 0 ? (
+                        <div className="space-y-2 pt-2 border-t border-[#F4D6DC]">
+                          <p className="text-xs font-extrabold text-[#720002] uppercase tracking-wider">Detail Akun / Kode Produk:</p>
+                          {itemDataArray.map((data: string, dataIdx: number) => (
+                            <div key={dataIdx} className="bg-[#FBEEF1] border-2 border-[#F4D6DC] rounded-xl p-3 flex items-center justify-between gap-2">
+                              <span className="font-mono text-xs font-bold text-[#720002] break-all">{data}</span>
+                              <button
+                                onClick={async () => {
+                                  const ok = await copyToClipboard(data)
+                                  showCopyToast(ok ? 'Tersalin!' : 'Gagal menyalin')
+                                }}
+                                className="px-3 py-1 rounded-lg bg-white text-[#DB8291] font-extrabold text-[10px] shrink-0 hover:bg-[#F4D6DC]"
+                              >
+                                Copy
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-[#FBEEF1] rounded-xl text-xs text-[#9E6B72] font-bold">
+                          Data akun sedang disiapkan sistem...
+                        </div>
+                      )}
+
+                      {notesList.length > 0 && (
+                        <div className="pt-2 border-t border-[#F4D6DC]">
+                          <p className="text-xs font-extrabold text-[#720002]">Ketentuan Produk:</p>
+                          <div className="text-xs text-[#9E6B72] mt-1 space-y-0.5">
+                            {notesList.map((n: string, i: number) => <p key={i}>{n}</p>)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

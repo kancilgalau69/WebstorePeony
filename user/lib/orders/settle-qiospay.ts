@@ -48,6 +48,21 @@ export async function settleQiospayOrder(orderId: string, expectedAmount?: numbe
   }
 
   const alreadyCompleted = String(order.status).toLowerCase() === 'completed'
+  const currentStatus = String(order.status || '').toLowerCase()
+
+  if (!alreadyCompleted && currentStatus !== 'pending' && currentStatus !== 'processing') {
+    logWarn('SETTLE', 'Refusing to settle non-payable order status', { orderId, status: currentStatus })
+    return { completed: false, itemsReady: false }
+  }
+
+  if (expectedAmount !== undefined && Math.round(Number(order.total_amount)) !== Math.round(Number(expectedAmount))) {
+    logWarn('SETTLE', 'Refusing to settle amount mismatch', {
+      orderId,
+      expectedAmount,
+      orderAmount: Number(order.total_amount),
+    })
+    return { completed: false, itemsReady: false }
+  }
 
   // 1. Mark completed (idempotent). The .neq guard + returned rows tell us whether
   //    THIS call performed the pending -> completed transition, so the admin
@@ -58,7 +73,7 @@ export async function settleQiospayOrder(orderId: string, expectedAmount?: numbe
       .from('orders')
       .update({ status: 'completed', paid_at: new Date().toISOString() })
       .eq('order_id', orderId)
-      .neq('status', 'completed')
+      .in('status', ['pending', 'processing'])
       .select('id')
     if (updErr) {
       logWarn('SETTLE', 'Order update failed', { orderId, message: updErr.message })

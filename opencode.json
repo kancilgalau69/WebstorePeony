@@ -8,8 +8,8 @@
         "apiKey": "sk-dd280c071621651a-xby4wm-1e189a5b"
       },
       "models": {
-        "cx/gpt-5.5-xhigh": {
-          "name": "cx/gpt-5.5-xhigh",
+        "cx/gpt-5.6-sol": {
+          "name": "cx/gpt-5.6-sol",
           "modalities": {
             "input": [
               "text",
@@ -23,7 +23,7 @@
       }
     }
   },
-  "model": "9router/cx/gpt-5.5-xhigh",
+  "model": "9router/cx/gpt-5.6-sol",
   "agent": {
     "explorer": {
       "description": "Fast explorer subagent for codebase exploration",

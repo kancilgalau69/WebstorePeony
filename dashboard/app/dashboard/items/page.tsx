@@ -337,17 +337,46 @@ export default function ProductItemsPage() {
   // Per-product storage key so each product remembers its own last used note/S&K.
   const notesStorageKey = (productId: string) => `lastItemNotes:${productId}`
 
-  const loadLastNotesForProduct = (productId: string): string => {
+  const loadLastNotesForProduct = async (productId: string): Promise<string> => {
     if (!productId || typeof window === 'undefined') return ''
-    try { return localStorage.getItem(notesStorageKey(productId)) || '' } catch { return '' }
+    try {
+      const saved = localStorage.getItem(notesStorageKey(productId))
+      if (saved && saved.trim()) return saved
+    } catch {}
+
+    // Prefer already-loaded rows first. Items are fetched newest-first for the
+    // selected product, so the first row with notes is the latest S&K used.
+    const fromLoadedItems = items.find((item) => item.product_id === productId && String(item.notes || '').trim())?.notes
+    if (fromLoadedItems && fromLoadedItems.trim()) return fromLoadedItems
+
+    // Fallback to DB so old notes still prefill even if this browser never saved
+    // them to localStorage.
+    try {
+      const { data } = await supabase
+        .from('product_items')
+        .select('notes')
+        .eq('product_id', productId)
+        .order('created_at', { ascending: false })
+        .limit(25)
+
+      const latest = (data || []).find((row: any) => String(row.notes || '').trim())?.notes
+      if (latest && String(latest).trim()) {
+        try { localStorage.setItem(notesStorageKey(productId), String(latest)) } catch {}
+        return String(latest)
+      }
+    } catch (error) {
+      console.warn('Failed loading previous product notes:', error)
+    }
+
+    return ''
   }
 
   // Open the Add Items modal and pre-fill notes with the last S&K used for THIS product.
-  const openAddModal = () => {
+  const openAddModal = async () => {
     setNewItems('')
     setBatchName('')
-    setItemNotes(loadLastNotesForProduct(selectedProduct))
     setShowAddModal(true)
+    setItemNotes(await loadLastNotesForProduct(selectedProduct))
   }
 
   const handleAddItems = async (e: React.FormEvent) => {
@@ -925,8 +954,10 @@ export default function ProductItemsPage() {
                           {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                         </span>
                       </td>
-                      <td className="px-6 py-3 text-sm text-gray-600">
-                        {item.notes || '-'}
+                      <td className="px-6 py-3 text-sm text-gray-600 max-w-[260px]">
+                        <div className="truncate" title={item.notes || '-'}>
+                          {item.notes || '-'}
+                        </div>
                       </td>
                       <td className="px-6 py-3 text-sm text-gray-600">
                         {item.batch || '-'}
@@ -1059,7 +1090,7 @@ export default function ProductItemsPage() {
                         {item.notes && (
                           <div>
                             <span className="text-gray-500 text-xs">Notes:</span>
-                            <p className="text-gray-700 text-xs">{item.notes}</p>
+                            <p className="text-gray-700 text-xs truncate" title={item.notes}>{item.notes}</p>
                           </div>
                         )}
                         {item.batch && (
