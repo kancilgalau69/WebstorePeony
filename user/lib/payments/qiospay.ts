@@ -215,7 +215,11 @@ export function isCreditEntry(entry: QiospayMutasiEntry): boolean {
 
 /** Parse Qiospay's common timestamp formats as Asia/Jakarta time. */
 export function qiospayEntryTimestamp(entry: QiospayMutasiEntry): number | null {
-  const raw = String(entry.date || entry.time || '').trim()
+  const datePart = String(entry.date || '').trim()
+  const timePart = String(entry.time || '').trim()
+  const raw = /^\d{4}-\d{2}-\d{2}$/.test(datePart) && /^\d{2}:\d{2}(?::\d{2})?$/.test(timePart)
+    ? `${datePart} ${timePart}`
+    : String(datePart || timePart).trim()
   if (!raw) return null
 
   if (/^\d{10,13}$/.test(raw)) {

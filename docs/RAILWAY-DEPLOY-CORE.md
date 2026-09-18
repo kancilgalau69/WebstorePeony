@@ -90,6 +90,8 @@ TOKOPAY_SECRET_KEY=xxx
 QIOSPAY_MERCHANT_CODE=QPxxx
 QIOSPAY_API_KEY=xxx
 QIOSPAY_SECRET_KEY=<buat-sendiri>
+QIOSPAY_QRIS_STRING=00020101...   # raw QRIS statis utuh dari Qiospay
+QIOSPAY_MAX_ADMIN_FEE=300
 WEBHOOK_WEB_RESELLER_URL=https://<domain-web-reseller>/api/webhook
 PAYMENT_TTL_MS=900000
 PRODUCT_TTL_MS=300000
@@ -101,6 +103,7 @@ PRODUCT_TTL_MS=300000
 - `WEBHOOK_WEB_URL` = endpoint webhook web user. Bot meneruskan notifikasi pembayaran order `PBS-*` ke sini. Wajib benar agar item digital web user terkirim.
 - Set **Notification URL Midtrans** (dashboard Midtrans) ke `https://<domain-bot>/webhook/midtrans`.
 - `MIDTRANS_IS_PRODUCTION=true` untuk akun produksi; `false` untuk sandbox.
+- Jika `active_payment_gateway=qiospay`, ketiga env Qiospay (`MERCHANT_CODE`, `API_KEY`, `QRIS_STRING`) wajib tersedia di service bot. Bot membuat QRIS dinamis dan memverifikasi pembayaran melalui mutasi Qiospay.
 
 ---
 

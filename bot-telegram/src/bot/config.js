@@ -33,6 +33,10 @@ export const BOT_CONFIG = {
   // Midtrans
   MIDTRANS_SERVER_KEY: process.env.MIDTRANS_SERVER_KEY || '',
   MIDTRANS_IS_PRODUCTION: bool(process.env.MIDTRANS_IS_PRODUCTION, false),
+  QIOSPAY_MERCHANT_CODE: process.env.QIOSPAY_MERCHANT_CODE || '',
+  QIOSPAY_API_KEY: process.env.QIOSPAY_API_KEY || '',
+  QIOSPAY_QRIS_STRING: process.env.QIOSPAY_QRIS_STRING || '',
+  QIOSPAY_MAX_ADMIN_FEE: num(process.env.QIOSPAY_MAX_ADMIN_FEE, 300),
   PAYMENT_TTL_MS: num(process.env.PAYMENT_TTL_MS, 15 * 60 * 1000), // 15 minutes
   
   // Server
@@ -81,8 +85,11 @@ export function validateConfig() {
     errors.push('SUPABASE_ANON_KEY is required');
   }
   
-  if (!BOT_CONFIG.MIDTRANS_SERVER_KEY) {
-    errors.push('MIDTRANS_SERVER_KEY is required for payments');
+  const hasMidtrans = Boolean(BOT_CONFIG.MIDTRANS_SERVER_KEY);
+  const hasQiospay = Boolean(BOT_CONFIG.QIOSPAY_MERCHANT_CODE && BOT_CONFIG.QIOSPAY_API_KEY && BOT_CONFIG.QIOSPAY_QRIS_STRING);
+  const hasTokopay = Boolean(process.env.TOKOPAY_MERCHANT_ID && process.env.TOKOPAY_SECRET_KEY);
+  if (!hasMidtrans && !hasQiospay && !hasTokopay) {
+    errors.push('At least one payment provider (Midtrans, Tokopay, or Qiospay) must be configured');
   }
   
   if (errors.length > 0) {

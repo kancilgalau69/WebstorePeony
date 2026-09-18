@@ -16,8 +16,12 @@ export async function createOrder(orderData) {
         user_id: orderData.user_id,
         total_amount: orderData.total_amount,
         payment_url: orderData.payment_url,
+        transaction_id: orderData.transaction_id || null,
+        payment_provider: orderData.payment_provider || 'midtrans',
+        payment_method: 'qris',
         midtrans_token: orderData.midtrans_token,
         user_ref: orderData.user_ref,
+        items: orderData.items || [],
         status: 'pending',
         expired_at: orderData.expired_at,
       })
@@ -69,15 +73,17 @@ export async function createOrderItems(orderId, items) {
       item_data: item.item_data || null,
     }));
     
-    const { data, error } = await supabase
-      .from('order_items')
-      .insert(orderItems)
-      .select();
-    
-    if (error) throw error;
+    const inserted = [];
+    for (const row of orderItems) {
+      const { data, error } = await supabase.from('order_items').insert(row).select().single();
+      // Callback and polling may race. The DB unique index makes an identical
+      // delivered item idempotent; only unexpected insert errors should fail.
+      if (error && error.code !== '23505') throw error;
+      if (data) inserted.push(data);
+    }
     
     logger.info(`Order items created: ${items.length} items`);
-    return data;
+    return inserted;
   } catch (error) {
     logger.error('Failed to create order items:', { error: error.message });
     throw error;
@@ -159,7 +165,6 @@ export async function markItemsAsSent(orderId, itemData) {
       .update({
         sent: true,
         sent_at: new Date().toISOString(),
-        item_data: itemData, // Serialized item details
       })
       .eq('order_id', orderRow.id)
       .select();

@@ -14,7 +14,7 @@ import { getAll as getAllProducts, byKode } from '../../data/products.js';
 import { loadProducts } from '../../data/products.js';
 import { categories } from '../../data/products.js';
 import { handleMenu, handleCategories, handleFavorites, handleHistory } from './commands.js';
-import { handlePurchase, cancelOrder } from './purchase.js';
+import { handlePurchase, cancelOrder, getProviderPaymentStatus, handlePaymentSuccess } from './purchase.js';
 
 /**
  * Handle all callback queries
@@ -381,10 +381,12 @@ async function handleCheckStatusCallback(ctx, params) {
   const [orderId] = params;
   
   try {
-    const { midtransStatus } = await import('../../payments/midtrans.js');
-    const status = await midtransStatus(orderId);
-    
+    const status = await getProviderPaymentStatus(orderId);
     await ctx.answerCbQuery(`Status: ${status.transaction_status}`);
+    const normalized = String(status.transaction_status || '').toLowerCase();
+    if (normalized === 'settlement' || normalized === 'capture') {
+      await handlePaymentSuccess(ctx.telegram, orderId, status);
+    }
   } catch {
     await ctx.answerCbQuery('❌ Gagal cek status');
   }

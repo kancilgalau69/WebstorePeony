@@ -119,6 +119,7 @@ async function reconcileQiospayPaymentByAmount(amount: number, paidAtMs?: number
     .select('order_id, total_amount, status, created_at, expired_at')
     .eq('payment_provider', 'qiospay')
     .eq('status', 'pending')
+    .not('user_web_id', 'is', null)
     .eq('total_amount', amount)
     .order('created_at', { ascending: true })
     .limit(20)

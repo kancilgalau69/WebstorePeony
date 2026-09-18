@@ -15,10 +15,32 @@ function jsonNoStore(payload: any, status = 200) {
   })
 }
 
-// GET - Fetch all user_web (with wallet balance)
-export async function GET() {
+const PAID_STATUSES = new Set(['paid', 'completed', 'settlement', 'capture', 'success'])
+
+function jakartaDateKey(value: string | Date) {
+  const date = typeof value === 'string' ? new Date(value) : value
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date)
+  const year = parts.find(p => p.type === 'year')?.value || '0000'
+  const month = parts.find(p => p.type === 'month')?.value || '00'
+  const day = parts.find(p => p.type === 'day')?.value || '00'
+  return `${year}-${month}-${day}`
+}
+
+// GET - Fetch all user_web (with wallet balance + purchase statistics)
+export async function GET(req: NextRequest) {
   try {
     const supabase = createServerClient()
+    const params = new URL(req.url).searchParams
+    const period = ['day', 'month', 'year'].includes(String(params.get('period'))) ? String(params.get('period')) : 'all'
+    const periodValue = period === 'day'
+      ? String(params.get('date') || '')
+      : period === 'month'
+        ? String(params.get('month') || '')
+        : period === 'year'
+          ? String(params.get('year') || '')
+          : ''
 
     const { data, error } = await supabase
       .from('user_web')
@@ -44,12 +66,47 @@ export async function GET() {
       // wallet table optional; default 0
     }
 
+    // Fetch all paid orders in pages so statistics are not truncated by
+    // PostgREST's default 1000-row response limit.
+    const orders: any[] = []
+    const pageSize = 1000
+    for (let from = 0; ; from += pageSize) {
+      const { data: page, error: ordersError } = await supabase
+        .from('orders')
+        .select('user_web_id, customer_email, status, total_amount, created_at')
+        .range(from, from + pageSize - 1)
+      if (ordersError) return jsonNoStore({ error: ordersError.message }, 500)
+      const rows = page || []
+      orders.push(...rows)
+      if (rows.length < pageSize) break
+    }
+
+    const userByEmail = new Map(users.map((u: any) => [String(u.email || '').toLowerCase(), String(u.id)]))
+    const purchaseByUser = new Map<string, { count: number; total: number }>()
+    for (const order of orders) {
+      if (!PAID_STATUSES.has(String(order.status || '').toLowerCase())) continue
+      const orderDate = jakartaDateKey(order.created_at)
+      if (period === 'day' && periodValue && orderDate !== periodValue) continue
+      if (period === 'month' && periodValue && orderDate.slice(0, 7) !== periodValue) continue
+      if (period === 'year' && periodValue && orderDate.slice(0, 4) !== periodValue) continue
+      const userId = order.user_web_id
+        ? String(order.user_web_id)
+        : userByEmail.get(String(order.customer_email || '').toLowerCase())
+      if (!userId) continue
+      const current = purchaseByUser.get(userId) || { count: 0, total: 0 }
+      current.count += 1
+      current.total += Number(order.total_amount || 0) || 0
+      purchaseByUser.set(userId, current)
+    }
+
     const withBalance = users.map((u: any) => ({
       ...u,
       saldo: balanceByUser.get(String(u.id)) || 0,
+      purchase_count: purchaseByUser.get(String(u.id))?.count || 0,
+      purchase_total: purchaseByUser.get(String(u.id))?.total || 0,
     }))
 
-    return jsonNoStore({ data: withBalance })
+    return jsonNoStore({ data: withBalance, period, periodValue })
   } catch (err: any) {
     return jsonNoStore({ error: err?.message || 'Failed to fetch web users' }, 500)
   }

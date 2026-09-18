@@ -40,6 +40,7 @@ import {
   handleTextMessage,
 } from './src/bot/handlers/commands.js';
 import { handleCallbackQuery } from './src/bot/handlers/callbacks.js';
+import { restorePendingQiospayOrders } from './src/bot/handlers/purchase.js';
 import { handleAdminCommand } from './src/bot/handlers/admin.js';
 import {
   handleMidtransWebhook,
@@ -297,6 +298,13 @@ async function launch() {
     const { getAll } = await import('./src/data/products.js');
     const products = getAll();
     console.log(`✅ Products loaded: ${products.length}`);
+
+    try {
+      const restored = await restorePendingQiospayOrders(bot.telegram);
+      logger.info(`✅ Restored pending Qiospay orders: ${restored}`);
+    } catch (restoreError) {
+      logger.warn('Could not restore pending Qiospay orders', { error: restoreError?.message });
+    }
     
     // Start scheduler
     scheduler.start();

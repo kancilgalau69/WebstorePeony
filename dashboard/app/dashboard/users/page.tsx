@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { createBrowserClient } from '@/lib/supabase'
 import { 
   FiSearch, FiChevronLeft, FiChevronRight, FiUsers, FiGlobe,
   FiEdit2, FiTrash2, FiX, FiCheck, FiToggleLeft, FiToggleRight,
   FiAlertCircle, FiCheckCircle, FiMail, FiPhone, FiUser, FiEye,
-  FiClock, FiHash, FiAtSign, FiMessageSquare, FiDollarSign
+  FiClock, FiHash, FiAtSign, FiMessageSquare, FiDollarSign, FiDownload, FiShoppingCart
 } from 'react-icons/fi'
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -29,6 +29,8 @@ type WebUser = {
   created_at: string
   updated_at: string
   saldo?: number
+  purchase_count?: number
+  purchase_total?: number
 }
 
 type TabKey = 'telegram' | 'web'
@@ -559,6 +561,14 @@ export default function UsersPage() {
 
   // ─── Shared state ──────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
+  const [transactionSort, setTransactionSort] = useState<'default' | 'most' | 'least'>('default')
+  const todayJakarta = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+  const [transactionPeriod, setTransactionPeriod] = useState<'all' | 'day' | 'month' | 'year'>('all')
+  const [transactionDate, setTransactionDate] = useState(todayJakarta)
+  const [transactionMonth, setTransactionMonth] = useState(todayJakarta.slice(0, 7))
+  const [transactionYear, setTransactionYear] = useState(todayJakarta.slice(0, 4))
+  const transactionPeriodRef = useRef({ period: transactionPeriod, date: transactionDate, month: transactionMonth, year: transactionYear })
+  transactionPeriodRef.current = { period: transactionPeriod, date: transactionDate, month: transactionMonth, year: transactionYear }
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [saving, setSaving] = useState(false)
@@ -589,6 +599,9 @@ export default function UsersPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_web' }, () => {
         fetchWebUsers()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchWebUsers()
+      })
       .subscribe()
 
     return () => {
@@ -598,7 +611,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, activeTab])
+  }, [searchQuery, activeTab, transactionSort, transactionPeriod, transactionDate, transactionMonth, transactionYear])
 
   const fetchTelegramUsers = async () => {
     try {
@@ -623,7 +636,12 @@ export default function UsersPage() {
 
   const fetchWebUsers = async () => {
     try {
-      const res = await fetch('/api/user-web')
+      const filter = transactionPeriodRef.current
+      const params = new URLSearchParams({ period: filter.period })
+      if (filter.period === 'day') params.set('date', filter.date)
+      if (filter.period === 'month') params.set('month', filter.month)
+      if (filter.period === 'year') params.set('year', filter.year)
+      const res = await fetch(`/api/user-web?${params.toString()}`, { cache: 'no-store' })
       const json = await res.json()
       if (json.error) throw new Error(json.error)
       setWebUsers(json.data || [])
@@ -633,6 +651,10 @@ export default function UsersPage() {
       setWebLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (activeTab === 'web') fetchWebUsers()
+  }, [transactionPeriod, transactionDate, transactionMonth, transactionYear])
 
   // ═══════════════════════════════════════════════════════════════
   // TELEGRAM USER ACTIONS
@@ -781,16 +803,77 @@ export default function UsersPage() {
   // ─── Web filtering & stats ─────────────────────────────────────
   const filteredWebUsers = useMemo(() => {
     const q = searchQuery.toLowerCase()
-    return webUsers.filter(user =>
+    const filtered = webUsers.filter(user =>
       user.nama.toLowerCase().includes(q) ||
       user.email.toLowerCase().includes(q) ||
       user.phone.includes(searchQuery)
     )
-  }, [webUsers, searchQuery])
+    if (transactionSort === 'most') {
+      return [...filtered].sort((a, b) => Number(b.purchase_count || 0) - Number(a.purchase_count || 0))
+    }
+    if (transactionSort === 'least') {
+      return [...filtered].sort((a, b) => Number(a.purchase_count || 0) - Number(b.purchase_count || 0))
+    }
+    return filtered
+  }, [webUsers, searchQuery, transactionSort])
 
   const activeWebUsers = useMemo(() => webUsers.filter(u => u.is_active).length, [webUsers])
   const inactiveWebUsers = useMemo(() => webUsers.filter(u => !u.is_active).length, [webUsers])
   const totalWebBalance = useMemo(() => webUsers.reduce((sum, u) => sum + Number(u.saldo || 0), 0), [webUsers])
+
+  const exportAllWebUsers = () => {
+    if (webUsers.length === 0) {
+      alert('Belum ada data user untuk diexport')
+      return
+    }
+
+    const escapeHtml = (value: unknown) => String(value ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
+    const rows = [...webUsers]
+    if (transactionSort === 'most') rows.sort((a, b) => Number(b.purchase_count || 0) - Number(a.purchase_count || 0))
+    if (transactionSort === 'least') rows.sort((a, b) => Number(a.purchase_count || 0) - Number(b.purchase_count || 0))
+
+    const body = rows.map((user, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escapeHtml(user.nama)}</td>
+        <td>${escapeHtml(user.email)}</td>
+        <td style="mso-number-format:'\\@';">${escapeHtml(user.phone)}</td>
+        <td>${Number(user.saldo || 0)}</td>
+        <td>${Number(user.purchase_count || 0)}</td>
+        <td>${Number(user.purchase_total || 0)}</td>
+        <td>${user.is_active ? 'Aktif' : 'Nonaktif'}</td>
+        <td>${escapeHtml(new Date(user.created_at).toLocaleString('id-ID'))}</td>
+      </tr>`).join('')
+
+    const periodLabel = transactionPeriod === 'day'
+      ? `hari-${transactionDate}`
+      : transactionPeriod === 'month'
+        ? `bulan-${transactionMonth}`
+        : transactionPeriod === 'year'
+          ? `tahun-${transactionYear}`
+          : 'semua-periode'
+
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="UTF-8"/><style>
+        table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px}th{background:#4f46e5;color:#fff;font-weight:bold;border:1px solid #d1d5db;padding:8px}td{border:1px solid #d1d5db;padding:7px}.title{font-size:18px;font-weight:bold;margin-bottom:10px}
+      </style></head><body>
+      <div class="title">Data Semua User Web Peony Store - ${periodLabel}</div>
+      <table><thead><tr><th>No</th><th>Nama</th><th>Email</th><th>No. Telepon</th><th>Saldo</th><th>Jumlah Pembelian</th><th>Total Belanja</th><th>Status</th><th>Terdaftar</th></tr></thead><tbody>${body}</tbody></table>
+      </body></html>`
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `semua-user-web-${periodLabel}.xls`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   // ─── Pagination ────────────────────────────────────────────────
   const currentItems = activeTab === 'telegram' ? filteredTelegramUsers : filteredWebUsers
@@ -1127,16 +1210,54 @@ export default function UsersPage() {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-3 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cari berdasarkan nama, email, atau no. telepon..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+          {/* Search, transaction sort & export */}
+          <div className="flex flex-col lg:flex-row gap-3">
+            <div className="relative flex-1">
+              <FiSearch className="absolute left-3 top-3 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Cari berdasarkan nama, email, atau no. telepon..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <select
+              value={transactionPeriod}
+              onChange={(e) => setTransactionPeriod(e.target.value as 'all' | 'day' | 'month' | 'year')}
+              className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">Semua Periode</option>
+              <option value="day">Per Hari</option>
+              <option value="month">Per Bulan</option>
+              <option value="year">Per Tahun</option>
+            </select>
+            {transactionPeriod === 'day' && (
+              <input type="date" value={transactionDate} max={todayJakarta} onChange={(e) => setTransactionDate(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            )}
+            {transactionPeriod === 'month' && (
+              <input type="month" value={transactionMonth} max={todayJakarta.slice(0, 7)} onChange={(e) => setTransactionMonth(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            )}
+            {transactionPeriod === 'year' && (
+              <select value={transactionYear} onChange={(e) => setTransactionYear(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                {Array.from({ length: 6 }, (_, index) => Number(todayJakarta.slice(0, 4)) - index).map((year) => <option key={year} value={year}>{year}</option>)}
+              </select>
+            )}
+            <select
+              value={transactionSort}
+              onChange={(e) => setTransactionSort(e.target.value as 'default' | 'most' | 'least')}
+              className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="default">Urutan User Terbaru</option>
+              <option value="most">Transaksi Terbanyak</option>
+              <option value="least">Transaksi Paling Sedikit</option>
+            </select>
+            <button
+              onClick={exportAllWebUsers}
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              <FiDownload size={16} /> Export Semua User
+            </button>
           </div>
 
           {/* Pagination */}
@@ -1172,6 +1293,8 @@ export default function UsersPage() {
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Email</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">No. Telepon</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Saldo</th>
+                        <th className="text-center px-6 py-3 font-semibold text-gray-900 text-sm">Pembelian</th>
+                        <th className="text-right px-6 py-3 font-semibold text-gray-900 text-sm">Total Belanja</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Status</th>
                         <th className="text-left px-6 py-3 font-semibold text-gray-900 text-sm">Terdaftar</th>
                         <th className="text-center px-6 py-3 font-semibold text-gray-900 text-sm">Aksi</th>
@@ -1189,6 +1312,14 @@ export default function UsersPage() {
                           <td className="px-6 py-3 text-sm text-gray-600">{user.phone}</td>
                           <td className="px-6 py-3">
                             <span className="text-sm font-bold text-purple-700">Rp {Number(user.saldo || 0).toLocaleString('id-ID')}</span>
+                          </td>
+                          <td className="px-6 py-3 text-center">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold">
+                              <FiShoppingCart size={12} /> {Number(user.purchase_count || 0)}x
+                            </span>
+                          </td>
+                          <td className="px-6 py-3 text-right text-sm font-bold text-gray-800">
+                            Rp {Number(user.purchase_total || 0).toLocaleString('id-ID')}
                           </td>
                           <td className="px-6 py-3">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1278,6 +1409,14 @@ export default function UsersPage() {
                           <p className="text-gray-700">
                             {new Date(user.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 text-xs">Pembelian:</span>
+                          <p className="text-indigo-700 font-bold">{Number(user.purchase_count || 0)} transaksi</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 text-xs">Total Belanja:</span>
+                          <p className="text-gray-800 font-bold">Rp {Number(user.purchase_total || 0).toLocaleString('id-ID')}</p>
                         </div>
                       </div>
                       <div className="flex items-center flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100">

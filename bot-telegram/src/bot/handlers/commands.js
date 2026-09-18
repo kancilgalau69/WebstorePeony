@@ -368,8 +368,8 @@ export async function handleStatus(ctx) {
   const orderId = parts[1];
   
   try {
-    const { midtransStatus } = await import('../../payments/midtrans.js');
-    const status = await midtransStatus(orderId);
+    const { getProviderPaymentStatus } = await import('./purchase.js');
+    const status = await getProviderPaymentStatus(orderId);
     
     const statusText = [
       '📋 *STATUS ORDER*',

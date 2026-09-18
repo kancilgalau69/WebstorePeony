@@ -17,6 +17,7 @@ import { upsertUser } from '../../database/users.js';
 import { createOrder, createOrderItems, updateOrderStatus, markItemsAsSent } from '../../database/orders.js';
 import { createMidtransQRISCharge, midtransStatus } from '../../payments/midtrans.js';
 import { createTokopayCharge, tokopayStatus } from '../../payments/tokopay.js';
+import { createQiospayCharge, qiospayStatus } from '../../payments/qiospay.js';
 import { supabase } from '../../database/supabase.js';
 
 function getBotPrice(product) {
@@ -210,7 +211,19 @@ export async function handlePurchase(ctx, productCode, quantity = 1) {
     let chargeResult;
     let paymentProvider = activeGateway;
     
-    if (activeGateway === 'tokopay') {
+    if (activeGateway === 'qiospay') {
+      paymentProvider = 'qiospay';
+      try {
+        chargeResult = await createQiospayCharge({
+          order_id: orderId,
+          gross_amount: totalAmount,
+          ttl_ms: BOT_CONFIG.PAYMENT_TTL_MS,
+        });
+      } catch (err) {
+        console.error('[QIOSPAY ERROR]', err);
+        chargeResult = null;
+      }
+    } else if (activeGateway === 'tokopay') {
       try {
         chargeResult = await createTokopayCharge({
           order_id: orderId,
@@ -260,16 +273,24 @@ export async function handlePurchase(ctx, productCode, quantity = 1) {
         language: ctx.from.language_code || 'id',
       });
 
+      const chargedTotal = Number(chargeResult.gross_amount || totalAmount);
       await createOrder({
         order_id: orderId,
         user_id: userId,  // Keep as number (BIGINT)
-        total_amount: totalAmount,
+        total_amount: chargedTotal,
         payment_url: chargeResult.payment_url || chargeResult.qr_url || null,
         transaction_id: chargeResult.transaction_id,
         payment_provider: paymentProvider,
         midtrans_token: chargeResult.token || null,
         user_ref: userRef,
         expired_at: new Date(chargeResult.expired_at || Date.now() + BOT_CONFIG.PAYMENT_TTL_MS).toISOString(),
+        items: [{
+          product_id: product.id || null,
+          product_code: productCode,
+          product_name: product.nama,
+          quantity,
+          price: unitPrice,
+        }],
       });
 
       await notifyAdminsNewTelegramOrder(ctx.telegram, {
@@ -279,20 +300,26 @@ export async function handlePurchase(ctx, productCode, quantity = 1) {
         productName: product.nama,
         productCode,
         quantity,
-        totalAmount,
+        totalAmount: chargedTotal,
       });
     } catch (persistErr) {
-      console.warn('[ORDER PERSIST WARN] Could not persist order/user:', persistErr?.message);
+      console.error('[ORDER PERSIST ERROR] Could not persist order/user:', persistErr?.message);
+      await releaseStock({ order_id: orderId, reason: 'order_persist_failed' });
+      await ctx.reply('❌ Gagal menyimpan pesanan. Stok sudah dikembalikan, silakan coba lagi.');
+      return;
     }
     
     // Step 3: Generate and send QR code
+    const chargedTotal = Number(chargeResult.gross_amount || totalAmount);
+    const qiospayFee = paymentProvider === 'qiospay' ? Number(chargeResult.admin_fee || 0) : 0;
     const caption = `
 🛒 *ORDER PEMBAYARAN*
 
 📝 Order ID: \`${orderId}\`
 Produk: ${product.nama}
 📦 Jumlah: ${quantity}
-💰 Total: Rp ${totalAmount.toLocaleString('id-ID')}
+💰 Total: Rp ${chargedTotal.toLocaleString('id-ID')}
+${qiospayFee > 0 ? `Biaya Admin \(kode unik\): Rp ${qiospayFee.toLocaleString('id-ID')}` : ''}
 
 ⏱️ QR Code valid 15 menit
 💳 Scan QRIS untuk melakukan pembayaran!
@@ -345,7 +372,9 @@ ${chargeResult.payment_url ? `\n🔗 Link Payment: ${chargeResult.payment_url}` 
       productName: product.nama,
       quantity,
       unitPrice,
-      total: totalAmount,
+      total: chargedTotal,
+      baseTotal: totalAmount,
+      adminFee: qiospayFee,
       status: 'pending',
       paymentProvider: paymentProvider,
       qrMessageId: qrMessage.message_id,
@@ -376,6 +405,7 @@ ${chargeResult.payment_url ? `\n🔗 Link Payment: ${chargeResult.payment_url}` 
  */
 
 function startPollingPaymentStatus(telegram, orderId) {
+  if (ACTIVE_POLLING_TIMERS.has(orderId)) return;
   const intervals = [5000, 10000, 15000, 30000]; // 5s, 10s, 15s, 30s intervals
   let attempts = 0;
 
@@ -399,12 +429,7 @@ function startPollingPaymentStatus(telegram, orderId) {
     );
     attempts++;
     try {
-      let status;
-      if (activeOrder.paymentProvider === 'tokopay') {
-        status = await tokopayStatus(orderId);
-      } else {
-        status = await midtransStatus(orderId);
-      }
+      const status = await getProviderPaymentStatus(orderId);
       const transactionStatus = (status.transaction_status || '').toLowerCase();
       console.log(`[POLL] ${orderId} - Attempt ${attempts} - Status: ${transactionStatus}`);
 
@@ -463,11 +488,74 @@ function clearPollingTimer(orderId) {
   }
 }
 
+export async function recoverActiveOrder(orderId) {
+  const existing = ACTIVE_ORDERS.get(orderId);
+  if (existing) return existing;
+
+  const { getOrder } = await import('../../database/orders.js');
+  const row = await getOrder(orderId);
+  const snapshot = Array.isArray(row?.items) ? row.items[0] : null;
+  if (!row || !row.user_id || !snapshot) return null;
+
+  const quantity = Number(snapshot.quantity || 1);
+  const unitPrice = Number(snapshot.price || 0);
+  const recovered = {
+    orderId,
+    userId: Number(row.user_id),
+    // Telegram private chat IDs match the user's Telegram ID in this bot flow.
+    chatId: Number(row.user_id),
+    productCode: snapshot.product_code || snapshot.productCode,
+    productName: snapshot.product_name || snapshot.name || snapshot.product_code,
+    quantity,
+    unitPrice,
+    total: Number(row.total_amount || 0),
+    baseTotal: unitPrice * quantity,
+    adminFee: Math.max(0, Number(row.total_amount || 0) - unitPrice * quantity),
+    status: row.status || 'pending',
+    paymentProvider: row.payment_provider || 'midtrans',
+    createdAt: new Date(row.created_at).getTime(),
+    expiresAt: row.expired_at ? new Date(row.expired_at).getTime() : new Date(row.created_at).getTime() + BOT_CONFIG.PAYMENT_TTL_MS,
+  };
+  ACTIVE_ORDERS.set(orderId, recovered);
+  return recovered;
+}
+
+export async function getProviderPaymentStatus(orderId) {
+  const order = ACTIVE_ORDERS.get(orderId) || await recoverActiveOrder(orderId);
+  if (!order) throw new Error('Order not found');
+  if (order.paymentProvider === 'qiospay') return qiospayStatus(orderId, order);
+  if (order.paymentProvider === 'tokopay') return tokopayStatus(orderId);
+  return midtransStatus(orderId);
+}
+
+export async function restorePendingQiospayOrders(telegram) {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('orders')
+    .select('order_id')
+    .eq('payment_provider', 'qiospay')
+    .eq('status', 'pending')
+    .not('user_id', 'is', null)
+    .gt('expired_at', nowIso)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+
+  let restored = 0;
+  for (const row of data || []) {
+    const order = await recoverActiveOrder(row.order_id);
+    if (!order) continue;
+    startPollingPaymentStatus(telegram, row.order_id);
+    restored++;
+  }
+  return restored;
+}
+
 /**
  * Handle successful payment
  */
 export async function handlePaymentSuccess(telegram, orderId, paymentData = null) {
-  const order = ACTIVE_ORDERS.get(orderId);
+  const order = ACTIVE_ORDERS.get(orderId) || await recoverActiveOrder(orderId);
   if (!order) {
     console.warn(`[PAYMENT SUCCESS] Order ${orderId} not found in memory`);
     return;
@@ -787,12 +875,7 @@ async function handlePaymentTimeout(telegram, orderId) {
   
   try {
     // Check one more time
-    let status;
-    if (order.paymentProvider === 'tokopay') {
-      status = await tokopayStatus(orderId);
-    } else {
-      status = await midtransStatus(orderId);
-    }
+    const status = await getProviderPaymentStatus(orderId);
     const transactionStatus = (status.transaction_status || '').toLowerCase();
     
     if (transactionStatus === 'settlement' || transactionStatus === 'capture') {
