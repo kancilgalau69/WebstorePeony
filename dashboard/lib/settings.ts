@@ -48,6 +48,7 @@ export interface AppSettings {
   market_withdrawal_cooldown_hours: number
   market_fee_model: string  // 'both' | 'seller_only' | 'buyer_only'
   active_payment_gateway: string
+  active_payment_methods: 'both' | 'qris_only' | 'balance_only' | 'none'
 }
 
 export const defaultSettings: AppSettings = {
@@ -72,6 +73,7 @@ export const defaultSettings: AppSettings = {
   market_withdrawal_cooldown_hours: 72,
   market_fee_model: 'both',
   active_payment_gateway: 'midtrans',
+  active_payment_methods: 'both',
 }
 
 export async function getSettings(): Promise<AppSettings> {

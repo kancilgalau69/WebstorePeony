@@ -8,8 +8,8 @@
         "apiKey": "sk-dd280c071621651a-xby4wm-1e189a5b"
       },
       "models": {
-        "cx/gpt-5.6-sol": {
-          "name": "cx/gpt-5.6-sol",
+        "tong/gpt-6.1-sol": {
+          "name": "tong/gpt-6.1-sol",
           "modalities": {
             "input": [
               "text",
@@ -23,12 +23,12 @@
       }
     }
   },
-  "model": "9router/cx/gpt-5.6-sol",
+  "model": "9router/tong/gpt-6.1-sol",
   "agent": {
     "explorer": {
       "description": "Fast explorer subagent for codebase exploration",
       "mode": "subagent",
-      "model": "9router/meong/meng/claude-opus-4.8"
+      "model": "9router/ghrocx/ghrocx/deepseek-v4-pro"
     }
   }
 }

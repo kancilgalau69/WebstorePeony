@@ -31,6 +31,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
+    const { data: paymentMethodsSetting } = await supabase
+      .from('settings').select('value').eq('key', 'active_payment_methods').maybeSingle()
+    const activePaymentMethods = String(paymentMethodsSetting?.value || 'both')
+    if (activePaymentMethods === 'balance_only' || activePaymentMethods === 'none') {
+      return NextResponse.json({ error: 'Pembayaran QRIS sedang tidak tersedia.', gateway: null }, { status: 403 })
+    }
     const rawItems: any[] = Array.isArray(body?.items) ? body.items : []
 
     // Normalize requested items -> product_id + quantity.

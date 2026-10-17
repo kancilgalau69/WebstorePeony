@@ -279,6 +279,23 @@ export default function SettingsPage() {
                 <option value="qiospay">Qiospay</option>
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Metode Pembayaran Aktif
+              </label>
+              <select
+                value={storeSettings.active_payment_methods}
+                onChange={(e) => setStoreSettings({ ...storeSettings, active_payment_methods: e.target.value as AppSettings['active_payment_methods'] })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="both">QRIS + Saldo</option>
+                <option value="qris_only">QRIS Only</option>
+                <option value="balance_only">Balance Only / Saldo Only</option>
+                <option value="none">Nonaktif Semua</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">Atur metode pembayaran yang tersedia di halaman checkout user.</p>
+            </div>
           </div>
         </div>
 
@@ -390,6 +407,7 @@ export default function SettingsPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
               />
             </div>
+
           </div>
         </div>
 

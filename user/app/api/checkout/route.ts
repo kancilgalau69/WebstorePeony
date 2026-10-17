@@ -750,9 +750,28 @@ export async function POST(request: NextRequest) {
 
     logInfo('CHECKOUT', `Active payment gateway: ${activeGateway}`)
 
+    let activePaymentMethods = 'both'
+    try {
+      const { data: paymentMethodsSetting } = await supabase
+        .from('settings').select('value').eq('key', 'active_payment_methods').single()
+      if (paymentMethodsSetting?.value) activePaymentMethods = String(paymentMethodsSetting.value)
+    } catch (err) {
+      logWarn('CHECKOUT', 'Failed to get active_payment_methods, defaulting to both', { error: String(err) })
+    }
+
+    const requestedPayMethod = String(body.payMethod || 'qris') === 'balance' ? 'balance' : 'qris'
+    const qrisEnabled = activePaymentMethods === 'both' || activePaymentMethods === 'qris_only'
+    const balanceEnabled = activePaymentMethods === 'both' || activePaymentMethods === 'balance_only'
+    if ((requestedPayMethod === 'qris' && !qrisEnabled) || (requestedPayMethod === 'balance' && !balanceEnabled)) {
+      return NextResponse.json({ error: 'Metode pembayaran ini sedang tidak tersedia.' }, { status: 403 })
+    }
+    if (!qrisEnabled && !balanceEnabled) {
+      return NextResponse.json({ error: 'Semua metode pembayaran sedang dinonaktifkan.' }, { status: 403 })
+    }
+
     // ── PAY WITH WALLET BALANCE ──────────────────────────────────────
     // Debits the user's saldo atomically and completes the order instantly.
-    if (String(body.payMethod || '') === 'balance') {
+    if (requestedPayMethod === 'balance') {
       // 1. Reserve items first (guards stock + phantom-stock).
       const reserveResults: Array<{ ok: boolean }> = []
       for (const item of serverItems) {

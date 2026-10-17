@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react'
 import Script from 'next/script'
 import Link from 'next/link'
 import { resolveWebPrice } from '@/lib/pricing'
+import { supabase } from '@/lib/supabase'
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart()
@@ -38,13 +39,29 @@ export default function CheckoutPage() {
   // Wallet balance + payment method choice ('qris' | 'balance')
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
   const [payMethod, setPayMethod] = useState<'qris' | 'balance'>('qris')
+  const [activePaymentMethods, setActivePaymentMethods] = useState<'both' | 'qris_only' | 'balance_only' | 'none'>('both')
+  const qrisEnabled = activePaymentMethods === 'both' || activePaymentMethods === 'qris_only'
+  const balanceEnabled = activePaymentMethods === 'both' || activePaymentMethods === 'balance_only'
+
+  useEffect(() => {
+    let cancelled = false
+      ; (supabase.from('settings') as any).select('value').eq('key', 'active_payment_methods').maybeSingle()
+        .then(({ data }: { data: { value?: string } | null }) => {
+          if (cancelled) return
+          const value = ['both', 'qris_only', 'balance_only', 'none'].includes(String(data?.value))
+            ? String(data?.value) as 'both' | 'qris_only' | 'balance_only' | 'none' : 'both'
+          setActivePaymentMethods(value)
+          if (value === 'balance_only') setPayMethod('balance')
+        }, () => { })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     fetch('/api/wallet', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (!cancelled && d) setWalletBalance(Number(d.balance || 0)) })
-      .catch(() => {})
+      .catch(() => { })
     return () => { cancelled = true }
   }, [])
 
@@ -306,7 +323,7 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 shadow-xs">
               <h2 className="font-fredoka text-xl text-[#720002] mb-4">Informasi Pembeli</h2>
-              
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-1.5">
@@ -358,14 +375,18 @@ export default function CheckoutPage() {
                   <label className="block text-xs font-extrabold text-[#720002] uppercase tracking-wider mb-2">
                     Metode Pembayaran
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {activePaymentMethods === 'none' && (
+                    <div className="rounded-2xl border-2 border-[#C81E3A]/20 bg-[#FFE4E6] p-4 text-sm font-bold text-[#C81E3A]">
+                      Semua metode pembayaran sedang dinonaktifkan. Silakan hubungi admin untuk bantuan.
+                    </div>
+                  )}
+                  <div className={`grid grid-cols-1 ${qrisEnabled && balanceEnabled ? 'sm:grid-cols-2' : ''} gap-3`}>
                     {/* QRIS */}
-                    <button
+                    {qrisEnabled && <button
                       type="button"
                       onClick={() => setPayMethod('qris')}
-                      className={`text-left p-4 rounded-2xl border-2 transition ${
-                        payMethod === 'qris' ? 'border-[#DB8291] bg-[#FBEEF1]' : 'border-[#F4D6DC] bg-white hover:border-[#E7A6B1]'
-                      }`}
+                      className={`text-left p-4 rounded-2xl border-2 transition ${payMethod === 'qris' ? 'border-[#DB8291] bg-[#FBEEF1]' : 'border-[#F4D6DC] bg-white hover:border-[#E7A6B1]'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <i className="fa-solid fa-qrcode text-[#DB8291]"></i>
@@ -373,15 +394,14 @@ export default function CheckoutPage() {
                         {payMethod === 'qris' && <i className="fa-solid fa-circle-check text-[#DB8291] ml-auto"></i>}
                       </div>
                       <p className="text-[11px] font-bold text-[#9E6B72] mt-1">Scan via bank / e-wallet</p>
-                    </button>
+                    </button>}
 
                     {/* Saldo */}
-                    <button
+                    {balanceEnabled && <button
                       type="button"
                       onClick={() => setPayMethod('balance')}
-                      className={`text-left p-4 rounded-2xl border-2 transition ${
-                        payMethod === 'balance' ? 'border-[#DB8291] bg-[#FBEEF1]' : 'border-[#F4D6DC] bg-white hover:border-[#E7A6B1]'
-                      }`}
+                      className={`text-left p-4 rounded-2xl border-2 transition ${payMethod === 'balance' ? 'border-[#DB8291] bg-[#FBEEF1]' : 'border-[#F4D6DC] bg-white hover:border-[#E7A6B1]'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <i className="fa-solid fa-wallet text-[#DB8291]"></i>
@@ -391,16 +411,16 @@ export default function CheckoutPage() {
                       <p className="text-[11px] font-bold text-[#9E6B72] mt-1">
                         {walletBalance === null ? 'Memuat saldo...' : `Saldo: ${formatPrice(walletBalance)}`}
                       </p>
-                    </button>
+                    </button>}
                   </div>
 
-                  {payMethod === 'balance' && walletBalance !== null && walletBalance < finalTotal && (
+                  {balanceEnabled && payMethod === 'balance' && walletBalance !== null && walletBalance < finalTotal && (
                     <div className="mt-3 bg-[#FFE4E6] border border-[#C81E3A]/20 text-[#C81E3A] rounded-2xl p-3 text-xs font-bold flex items-center justify-between gap-2">
                       <span>Saldo tidak cukup ({formatPrice(walletBalance)}).</span>
                       <Link href="/deposit" className="underline shrink-0">Top up dulu</Link>
                     </div>
                   )}
-                  {payMethod === 'balance' && (
+                  {balanceEnabled && payMethod === 'balance' && (
                     <p className="text-[11px] font-bold text-[#2E7D5B] mt-2">
                       <i className="fa-solid fa-bolt"></i> Bayar pakai saldo = instan, tanpa biaya admin.
                     </p>
@@ -411,6 +431,7 @@ export default function CheckoutPage() {
                   type="submit"
                   disabled={
                     loading ||
+                    activePaymentMethods === 'none' ||
                     (payMethod === 'balance' && walletBalance !== null && walletBalance < finalTotal)
                   }
                   className="btn-card-buy w-full py-3.5 text-xs mt-6"
@@ -418,8 +439,8 @@ export default function CheckoutPage() {
                   {loading
                     ? 'Memproses Transaksi...'
                     : payMethod === 'balance'
-                    ? `Bayar Pakai Saldo ${formatPrice(finalTotal)} ✦`
-                    : `Bayar Sekarang ${formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)} ✦`}
+                      ? `Bayar Pakai Saldo ${formatPrice(finalTotal)} ✦`
+                      : `Bayar Sekarang ${formatPrice(paymentInfo?.gateway === 'qiospay' ? (finalTotal + (paymentInfo.adminFee || 0)) : finalTotal)} ✦`}
                 </button>
               </form>
             </div>
@@ -429,7 +450,7 @@ export default function CheckoutPage() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-3xl border-2 border-[#F4D6DC] p-6 sticky top-20 shadow-xs space-y-4">
               <h2 className="font-fredoka text-xl text-[#720002]">Ringkasan Pesanan</h2>
-              
+
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                 {items.map((item) => (
                   <div key={item.product.id} className="flex justify-between text-xs font-bold text-[#9E6B72]">
